@@ -234,16 +234,10 @@ public class InteractiveFluidTicker extends FluidTicker {
                             int dBlockY = blockY - getFluidPosition(30, block.getId(), otherBlockSection, blockMap, blockX, blockY, blockZ);
 
                             otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, dBlockY, blockZ) : blockSection;
-                            InteractiveFluidsPlugin.get().getLogger().atInfo().log("bro why??? flowPhase: " + flowPhase.name());
-
                             executeCollision(world, accessor, otherBlockSection, config, blockX, dBlockY, blockZ);
                         }
 
                     } else {
-                        InteractiveFluidsPlugin.get().getLogger().atInfo().log("flowPhase: " + flowPhase.name());
-                        InteractiveFluidsPlugin.get().getLogger().atInfo().log("Y: " + y);
-                        InteractiveFluidsPlugin.get().getLogger().atInfo().log("World Y: " + worldY);
-                        InteractiveFluidsPlugin.get().getLogger().atInfo().log("Block Y: " + blockY);
                         otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, blockY, blockZ) : blockSection;
                         executeCollision(world, accessor, otherBlockSection, config, blockX, blockY, blockZ);
                     }
@@ -269,10 +263,7 @@ public class InteractiveFluidTicker extends FluidTicker {
     }
 
     private List<Vector3i> getNeighborBlockPos() {
-        if(this.flowShapeConfig == null) {
-            this.flowShapeConfig = new FlowShapeConfig();
-        }
-        return this.flowShapeConfig.getFlowShape().getBlockPosFunction().apply(flowShapeConfig.getShapeGenConfig());
+        return this.getFlowShapeConfig().getFlowShape().getBlockPosFunction().apply(getFlowShapeConfig().getShapeGenConfig());
     }
 
     private static void executeCollision(@Nonnull World world, @Nonnull Accessor accessor, BlockSection blockSection, @Nonnull BlockCollisionConfigEntry config, int blockX, int blockY, int blockZ) {
