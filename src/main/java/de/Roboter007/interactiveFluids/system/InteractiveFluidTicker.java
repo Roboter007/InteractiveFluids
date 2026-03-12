@@ -713,7 +713,6 @@ public class InteractiveFluidTicker extends FluidTicker {
     public static class BlockCollisionConfigEntry {
         public static final BuilderCodec<BlockCollisionConfigEntry> CODEC;
         protected String blockToPlace;
-        protected BlockType blockType;
         protected String blockState = "";
         protected int blockToPlaceIndex = Integer.MIN_VALUE;
         protected String soundEvent;
