@@ -42,8 +42,13 @@ public class InteractiveFluidTicker extends FluidTicker {
 
     public static final BuilderCodec<InteractiveFluidTicker> CODEC;
     public static final InteractiveFluidTicker INSTANCE;
+
+    private static final BlockTypeAssetMap<String, BlockType> BLOCK_MAP = BlockType.getAssetMap();
+    private static final IndexedLookupTableAssetMap<String, Fluid> FLUID_MAP = Fluid.getAssetMap();
+
     private String spreadFluid;
     private int spreadFluidId;
+
     private Map<String, FluidCollisionConfig> rawFluidCollisionMap = Collections.emptyMap();
     @Nullable
     private transient Int2ObjectMap<FluidCollisionConfig> fluidCollisionMap = null;
@@ -79,7 +84,7 @@ public class InteractiveFluidTicker extends FluidTicker {
     protected BlockTickStrategy spread(
             @Nonnull World world,
             long tick,
-            @Nonnull FluidTicker.Accessor accessor,
+            @Nonnull Accessor accessor,
             @Nonnull FluidSection fluidSection,
             BlockSection blockSection,
             @Nonnull Fluid fluid,
@@ -92,24 +97,21 @@ public class InteractiveFluidTicker extends FluidTicker {
         if (worldY == 0) {
             return BlockTickStrategy.SLEEP;
         } else {
-            BlockTypeAssetMap<String, BlockType> blockMap = BlockType.getAssetMap();
-
-            BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Spread, blockMap, world, worldX, worldY, worldZ, accessor, blockSection);
+            BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Spread, BLOCK_MAP, world, worldX, worldY, worldZ, accessor, blockSection);
             if(blockTickStrategy != null) {
                 return blockTickStrategy;
             }
 
-            IndexedLookupTableAssetMap<String, Fluid> fluidMap = Fluid.getAssetMap();
             boolean isDifferentSectionBelow = fluidSection.getY() != ChunkUtil.chunkCoordinate(worldY - 1);
             FluidSection fluidSectionBelow = isDifferentSectionBelow ? accessor.getFluidSectionByBlock(worldX, worldY - 1, worldZ) : fluidSection;
             BlockSection blockSectionBelow = isDifferentSectionBelow ? accessor.getBlockSectionByBlock(worldX, worldY - 1, worldZ) : blockSection;
             if (fluidSectionBelow != null && blockSectionBelow != null) {
                 int fluidBelowId = fluidSectionBelow.getFluidId(worldX, worldY - 1, worldZ);
-                Fluid fluidBelow = fluidMap.getAsset(fluidBelowId);
+                Fluid fluidBelow = FLUID_MAP.getAsset(fluidBelowId);
                 byte fluidLevelBelow = fluidSectionBelow.getFluidLevel(worldX, worldY - 1, worldZ);
                 int spreadFluidId = this.getSpreadFluidId(fluidId);
                 int blockIdBelow = blockSectionBelow.get(worldX, worldY - 1, worldZ);
-                BlockType blockBelow = blockMap.getAsset(blockIdBelow);
+                BlockType blockBelow = BLOCK_MAP.getAsset(blockIdBelow);
 
                 if (isSolid(blockBelow) || fluidBelowId != 0 && fluidBelowId != spreadFluidId && fluidBelowId == fluidId) {
                     if (fluidBelowId == 0 || fluidBelowId != spreadFluidId) {
@@ -117,17 +119,17 @@ public class InteractiveFluidTicker extends FluidTicker {
                             return BlockTickStrategy.SLEEP;
                         }
 
-                        int offsets = this.getSpreadOffsets(blockMap, accessor, fluidSection, blockSection, worldX, worldY, worldZ, ORTO_OFFSETS, fluidId, 5);
+                        int offsets = this.getSpreadOffsets(BLOCK_MAP, accessor, fluidSection, blockSection, worldX, worldY, worldZ, ORTO_OFFSETS, fluidId, 5);
                         if (offsets == 2147483646) {
                             return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
                         }
 
                         int childFillLevel = fluidLevel - 1;
                         if (spreadFluidId != fluidId) {
-                            childFillLevel = Fluid.getAssetMap().getAsset(spreadFluidId).getMaxFluidLevel() - 1;
+                            childFillLevel = FLUID_MAP.getAsset(spreadFluidId).getMaxFluidLevel() - 1;
                         }
 
-                        BlockType sourceBlock = blockMap.getAsset(blockSection.get(worldX, worldY, worldZ));
+                        BlockType sourceBlock = BLOCK_MAP.getAsset(blockSection.get(worldX, worldY, worldZ));
                         int sourceRotationIndex = blockSection.getRotationIndex(worldX, worldY, worldZ);
                         int sourceFiller = blockSection.getFiller(worldX, worldY, worldZ);
 
@@ -146,7 +148,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                                         return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
                                     }
 
-                                    BlockType block = blockMap.getAsset(otherBlockSection.get(blockX, worldY, blockZ));
+                                    BlockType block = BLOCK_MAP.getAsset(otherBlockSection.get(blockX, worldY, blockZ));
                                     int rotationIndex = otherBlockSection.getRotationIndex(blockX, worldY, blockZ);
                                     int destFiller = otherBlockSection.getFiller(blockX, worldY, blockZ);
                                     if (!this.blocksFluidFrom(block, rotationIndex, x, z, destFiller)) {
@@ -181,7 +183,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                     } else {
                         if (fluidBelowId == 0 && !isSolid(blockBelow) || fluidBelowId == spreadFluidId && fluidLevelBelow < fluidBelow.getMaxFluidLevel()) {
                             int spreadId = this.getSpreadFluidId(fluidId);
-                            Fluid spreadFluid = fluidMap.getAsset(spreadId);
+                            Fluid spreadFluid = FLUID_MAP.getAsset(spreadId);
                             boolean changed = fluidSectionBelow.setFluid(worldX, worldY - 1, worldZ, spreadId, (byte)spreadFluid.getMaxFluidLevel());
                             if (changed) {
                                 blockSectionBelow.setTicking(worldX, worldY - 1, worldZ, true);
@@ -288,6 +290,7 @@ public class InteractiveFluidTicker extends FluidTicker {
     }
 
     public static void setBlock(Accessor accessor, int x, int y, int z, BlockType blockType) {
+
         if(accessor instanceof CachedAccessor cachedAccessor) {
             try {
                 Field field = cachedAccessor.getClass().getDeclaredField("commandBuffer");
@@ -342,7 +345,7 @@ public class InteractiveFluidTicker extends FluidTicker {
     private int getSpreadFluidId(int fluidId) {
         if (this.spreadFluidId == 0) {
             if (this.spreadFluid != null) {
-                this.spreadFluidId = Fluid.getAssetMap().getIndex(this.spreadFluid);
+                this.spreadFluidId = FLUID_MAP.getIndex(this.spreadFluid);
             } else {
                 this.spreadFluidId = Integer.MIN_VALUE;
             }
@@ -358,7 +361,7 @@ public class InteractiveFluidTicker extends FluidTicker {
             Int2ObjectOpenHashMap<FluidCollisionConfig> collisionMap = new Int2ObjectOpenHashMap<>(this.rawFluidCollisionMap.size());
 
             for(Map.Entry<String, FluidCollisionConfig> entry : this.rawFluidCollisionMap.entrySet()) {
-                int index = Fluid.getAssetMap().getIndex(entry.getKey());
+                int index = FLUID_MAP.getIndex(entry.getKey());
                 if (index != Integer.MIN_VALUE) {
                     collisionMap.put(index, entry.getValue());
                 }
@@ -368,78 +371,6 @@ public class InteractiveFluidTicker extends FluidTicker {
         }
         return this.fluidCollisionMap;
     }
-
-
-    /*public BlockTickStrategy demoteCheckNearbyBlocks(World world, int fluidId, int worldX, int worldY, int worldZ, BlockSection blockSection, Accessor accessor) {
-        //ToDo: may be could be optimized?
-        BlockTypeAssetMap<String, BlockType> blockMap = BlockType.getAssetMap();
-        for (Vector3i origin : getNeighborBlockPos()) {
-            int originBlockX = worldX + origin.x;
-            int originBlockY = worldY + origin.y;
-            int originBlockZ = worldZ + origin.z;
-
-            boolean isDifferentSection = !ChunkUtil.isSameChunkSection(worldX, worldY, worldZ, originBlockX, originBlockY, originBlockZ);
-            BlockSection otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(originBlockX, originBlockY, originBlockZ) : blockSection;
-
-            if (otherBlockSection == null) {
-                return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
-            }
-
-            int blockId = otherBlockSection.get(originBlockX, originBlockY, originBlockZ);
-            BlockType block = blockMap.getAsset(blockId);
-            String otherBlockID = block.getId();
-            if (otherBlockID != null && !otherBlockID.isEmpty() && !otherBlockID.equals("Empty")) {
-                BlockCollisionConfigEntry demoteConfig = this.getBlockCollisionConfig().getCollisionMap(FlowPhase.Demoted).get(otherBlockID);
-                if (demoteConfig != null) {
-
-                    for (Vector3i vector3i : getNeighborBlockPos()) {
-                        int blockX = originBlockX + vector3i.x;
-                        int blockY = originBlockY + vector3i.y;
-                        int blockZ = originBlockZ + vector3i.z;
-
-                        FluidSection fluidSection = accessor.getFluidSectionByBlock(blockX, blockY, blockZ);
-
-                        if (fluidSection != null) {
-                            Fluid fluidAtLoc = fluidSection.getFluid(blockX, blockY, blockZ);
-                            if (fluidAtLoc != null) {
-                                Fluid fluid = Fluid.getAssetMap().getAsset(fluidId);
-                                if (fluid != null && fluid.getId().equals(fluidAtLoc.getId())) {
-                                    InteractiveFluidsPlugin.get().getLogger().atWarning().log("Origin: x: " + originBlockX + ", y: " + originBlockY + ", z: " + originBlockZ);
-                                    InteractiveFluidsPlugin.get().getLogger().atWarning().log("Current: x: " + blockX + ", y: " + blockY + ", z: " + blockZ);
-                                    InteractiveFluidsPlugin.get().getLogger().atWarning().log("Returned TTrue!!!");
-                                } else {
-                                    BlockCollisionConfigEntry config = this.getBlockCollisionConfig().getCollisionMap(FlowPhase.Spread).get(otherBlockID);
-                                    if (config != null) {
-                                        String blockState = config.getBlockState();
-                                        if (!blockState.isEmpty()) {
-                                            block = block.getBlockForState(blockState);
-                                        }
-
-                                        if (block != null && block.getDrawType() != DrawType.Cube) {
-                                            BlockBoundingBoxes blockBoundingBoxes = BlockBoundingBoxes.getAssetMap().getAsset(block.getHitboxType());
-
-                                            if (blockBoundingBoxes != null) {
-                                                // maxSearchHeight = 30 -> hardcoded due to missing possibility for getting the hitbox height
-                                                int dBlockY = blockY - getFluidPosition(30, block.getId(), otherBlockSection, blockMap, blockX, blockY, blockZ);
-
-                                                otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, dBlockY, blockZ) : blockSection;
-                                                executeCollision(world, accessor, otherBlockSection, config, blockX, dBlockY, blockZ);
-                                            }
-
-                                        } else {
-                                            otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, blockY, blockZ) : blockSection;
-                                            executeCollision(world, accessor, otherBlockSection, config, blockX, blockY, blockZ);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return null;
-    } */
 
     @Override
     public BlockTickStrategy process(
@@ -469,10 +400,6 @@ public class InteractiveFluidTicker extends FluidTicker {
 
                 fluidSection.setFluid(worldX, worldY, worldZ, fluidId, (byte) ((fluidLevel == 0 ? fluid.getMaxFluidLevel() : fluidLevel) - 1));
                 setTickingSurrounding(accessor, blockSection, worldX, worldY, worldZ);
-
-                //ToDo: currently creates one bug -> it sometimes (rare) overrides the work of FlowPhase.Demoted function (partially fixed, but not completely)
-                /*BlockTickStrategy blockTickStrategy = demoteCheckNearbyBlocks(world, fluidId, worldX, worldY, worldZ, blockSection, accessor);
-                return Objects.requireNonNullElse(blockTickStrategy, BlockTickStrategy.SLEEP); */
                 return BlockTickStrategy.SLEEP;
             case WAIT_FOR_ADJACENT_CHUNK:
                 return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
@@ -786,6 +713,7 @@ public class InteractiveFluidTicker extends FluidTicker {
     public static class BlockCollisionConfigEntry {
         public static final BuilderCodec<BlockCollisionConfigEntry> CODEC;
         protected String blockToPlace;
+        protected BlockType blockType;
         protected String blockState = "";
         protected int blockToPlaceIndex = Integer.MIN_VALUE;
         protected String soundEvent;
@@ -820,8 +748,10 @@ public class InteractiveFluidTicker extends FluidTicker {
             CODEC = BuilderCodec.builder(BlockCollisionConfigEntry.class, BlockCollisionConfigEntry::new)
                     .appendInherited(new KeyedCodec<>("Block", Codec.STRING), (o, v) -> o.blockToPlace = v, (o) -> o.blockToPlace, (o, p) -> o.blockToPlace = p.blockToPlace).documentation("The block to place when a collision occurs").add()
                     .appendInherited(new KeyedCodec<>("BlockState", Codec.STRING), (o, v) -> o.blockState = v, (o) -> o.blockState, (o, p) -> o.blockState = p.blockState).documentation("The block state of the block that gets placed").add()
+                    //.appendInherited()
                     .appendInherited(new KeyedCodec<>("SoundEvent", Codec.STRING), (o, v) -> o.soundEvent = v, (o) -> o.soundEvent, (o, p) -> o.soundEvent = p.soundEvent).addValidator(SoundEvent.VALIDATOR_CACHE.getValidator()).add()
                     .build();
+
         }
     }
 
