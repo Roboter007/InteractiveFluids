@@ -4,7 +4,7 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.asset.type.fluid.FluidTicker;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
-import de.Roboter007.interactiveFluids.system.InteractiveFluidTicker;
+import de.Roboter007.interactiveFluids.ticker.InteractiveFluidTicker;
 
 public class InteractiveFluidsPlugin extends JavaPlugin {
 

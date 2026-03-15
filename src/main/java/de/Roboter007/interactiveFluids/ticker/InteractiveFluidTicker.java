@@ -1,11 +1,10 @@
-package de.Roboter007.interactiveFluids.system;
+package de.Roboter007.interactiveFluids.ticker;
 
 import com.hypixel.hytale.assetstore.map.BlockTypeAssetMap;
 import com.hypixel.hytale.assetstore.map.IndexedLookupTableAssetMap;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
-import com.hypixel.hytale.codec.codecs.EnumCodec;
 import com.hypixel.hytale.codec.codecs.map.MapCodec;
 import com.hypixel.hytale.common.util.MapUtil;
 import com.hypixel.hytale.component.CommandBuffer;
@@ -19,7 +18,6 @@ import com.hypixel.hytale.server.core.asset.type.blocktick.BlockTickStrategy;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.asset.type.fluid.FluidTicker;
-import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
@@ -27,16 +25,18 @@ import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import de.Roboter007.interactiveFluids.InteractiveFluidsPlugin;
+import de.Roboter007.interactiveFluids.ticker.collision.block.BlockCollisionConfig;
+import de.Roboter007.interactiveFluids.ticker.collision.block.BlockCollisionConfigEntry;
+import de.Roboter007.interactiveFluids.ticker.collision.fluid.FluidCollisionConfig;
+import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
+import de.Roboter007.interactiveFluids.ticker.flowShape.FlowShapeConfig;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.util.*;
-import java.util.function.Function;
 
 public class InteractiveFluidTicker extends FluidTicker {
 
@@ -70,7 +70,7 @@ public class InteractiveFluidTicker extends FluidTicker {
         return blockCollisionConfig;
     }
 
-    private static int[] shapeGenConfigDefault() {
+    public static int[] shapeGenConfigDefault() {
         int[] defaultConfig = new int[3];
         defaultConfig[0] = 1;
         defaultConfig[1] = 1;
@@ -272,7 +272,7 @@ public class InteractiveFluidTicker extends FluidTicker {
         int blockToPlace = config.getBlockToPlaceIndex();
         BlockType block = BlockType.getAssetMap().getAsset(blockToPlace);
         if (blockToPlace != Integer.MIN_VALUE) {
-            if(!config.blockState.isEmpty()) {
+            if(!config.getBlockState().isEmpty()) {
                 if(block != null) {
                     block = block.getBlockForState(config.getBlockState());
                 }
@@ -420,369 +420,4 @@ public class InteractiveFluidTicker extends FluidTicker {
         INSTANCE = new InteractiveFluidTicker();
     }
 
-    public enum FlowPhase {
-        Spread,
-        Demoted
-    }
-
-    public enum FlowShape {
-        Cube(cube()),
-        Cuboid(cuboid()),
-        Sphere(sphere()),
-        Diamond(diamond()),
-        Flat_Square(flatSquare()),
-        Flat_Rectangle(flatRectangle()),
-        Flat_Circle(flatCircle()),
-        Flat_Diamond(flatDiamond());
-
-        private static Function<int[], List<Vector3i>> cube() {
-            return array -> {
-                List<Vector3i> blocks = new ArrayList<>();
-                int half = array[0] / 2;
-
-                for (int x = -half; x <= half; x++) {
-                    for (int y = -half; y <= half; y++) {
-                        for (int z = -half; z <= half; z++) {
-                            blocks.add(new Vector3i(x, y, z));
-                        }
-                    }
-                }
-                return blocks;
-            };
-        }
-
-        private static Function<int[], List<Vector3i>> cuboid() {
-            return shapeGenConfig -> {
-                List<Vector3i> blocks = new ArrayList<>();
-
-                int width  = shapeGenConfig[0];
-                int height = shapeGenConfig[1];
-                int depth  = shapeGenConfig[2];
-
-                int halfX = width  / 2;
-                int halfY = height / 2;
-                int halfZ = depth  / 2;
-
-                for (int x = -halfX; x <= halfX; x++) {
-                    for (int y = -halfY; y <= halfY; y++) {
-                        for (int z = -halfZ; z <= halfZ; z++) {
-                            blocks.add(new Vector3i(x, y, z));
-                        }
-                    }
-                }
-
-                return blocks;
-            };
-        }
-
-        private static Function<int[], List<Vector3i>> sphere() {
-            return shapeGenConfig -> {
-                List<Vector3i> blocks = new ArrayList<>();
-                int radius = shapeGenConfig[0];
-
-                for (int x = -radius; x <= radius; x++) {
-                    for (int y = -radius; y <= radius; y++) {
-                        for (int z = -radius; z <= radius; z++) {
-                            if (x * x + y * y + z * z <= radius * radius) {
-                                blocks.add(new Vector3i(x, y, z));
-                            }
-
-                        }
-                    }
-                }
-                return blocks;
-            };
-        }
-
-        private static Function<int[], List<Vector3i>> diamond() {
-            return shapeGenConfig -> {
-                List<Vector3i> blocks = new ArrayList<>();
-
-                int radius = shapeGenConfig[0];
-
-                for (int x = -radius; x <= radius; x++) {
-                    for (int y = -radius; y <= radius; y++) {
-                        for (int z = -radius; z <= radius; z++) {
-
-                            if (Math.abs(x) + Math.abs(y) + Math.abs(z) <= radius) {
-                                blocks.add(new Vector3i(x, y, z));
-                            }
-
-                        }
-                    }
-                }
-
-                return blocks;
-            };
-        }
-
-        private static Function<int[], List<Vector3i>> flatSquare() {
-            return shapeGenConfig -> {
-                List<Vector3i> blocks = new ArrayList<>();
-
-                int size = shapeGenConfig[0];
-                int start = -size / 2;
-
-                for (int x = 0; x < size; x++) {
-                    for (int z = 0; z < size; z++) {
-                        blocks.add(new Vector3i(
-                                start + x,
-                                0,
-                                start + z
-                        ));
-                    }
-                }
-
-                return blocks;
-            };
-        }
-
-        private static Function<int[], List<Vector3i>> flatRectangle() {
-            return shapeGenConfig -> {
-                List<Vector3i> blocks = new ArrayList<>();
-
-                int width = shapeGenConfig[0];
-                int depth = shapeGenConfig[1];
-
-                int startX = -width / 2;
-                int startZ = -depth / 2;
-
-                for (int x = 0; x < width; x++) {
-                    for (int z = 0; z < depth; z++) {
-                        blocks.add(new Vector3i(
-                                startX + x,
-                                0,
-                                startZ + z
-                        ));
-                    }
-                }
-
-                return blocks;
-            };
-        }
-
-        private static Function<int[], List<Vector3i>> flatCircle() {
-            return shapeGenConfig -> {
-                List<Vector3i> blocks = new ArrayList<>();
-
-                int radius = shapeGenConfig[0];
-
-                for (int x = -radius; x <= radius; x++) {
-                    for (int z = -radius; z <= radius; z++) {
-
-                        if (x * x + z * z <= radius * radius) {
-                            blocks.add(new Vector3i(x, 0, z));
-                        }
-
-                    }
-                }
-
-                return blocks;
-            };
-        }
-
-        private static Function<int[], List<Vector3i>> flatDiamond() {
-            return shapeGenConfig -> {
-                List<Vector3i> blocks = new ArrayList<>();
-
-                int radius = shapeGenConfig[0];
-
-                for (int x = -radius; x <= radius; x++) {
-                    for (int z = -radius; z <= radius; z++) {
-
-                        if (Math.abs(x) + Math.abs(z) <= radius) {
-                            blocks.add(new Vector3i(x, 0, z));
-                        }
-
-                    }
-                }
-
-                return blocks;
-            };
-        }
-
-
-        private final Function<int[], List<Vector3i>> blockPosFunction;
-
-        FlowShape(Function<int[], List<Vector3i>> blockPosFunction) {
-            this.blockPosFunction = blockPosFunction;
-        };
-
-
-        public Function<int[], List<Vector3i>> getBlockPosFunction() {
-            return blockPosFunction;
-        }
-    }
-
-    public static class FlowShapeConfig {
-        public static final BuilderCodec<FlowShapeConfig> CODEC;
-
-        private FlowShape flowShape = FlowShape.Diamond;
-        private int[] shapeGenConfig = shapeGenConfigDefault();
-
-        public FlowShape getFlowShape() {
-            return flowShape;
-        }
-
-        public int[] getShapeGenConfig() {
-            return shapeGenConfig;
-        }
-
-        static {
-            CODEC = BuilderCodec.builder(FlowShapeConfig.class, FlowShapeConfig::new)
-                    .appendInherited(new KeyedCodec<>("FlowShape", new EnumCodec<>(FlowShape.class)), (ticker, o) -> ticker.flowShape = o, (ticker) -> ticker.flowShape, (ticker, parent) -> ticker.flowShape = parent.flowShape).add()
-                    .appendInherited(new KeyedCodec<>("ShapeSizeOptions", Codec.INT_ARRAY), (ticker, o) -> ticker.shapeGenConfig = o, (ticker) -> ticker.shapeGenConfig, (ticker, parent) -> ticker.shapeGenConfig = parent.shapeGenConfig).add()
-                    .build();
-        }
-    }
-
-    public static class BlockCollisionConfig {
-        public static final BuilderCodec<BlockCollisionConfig> CODEC;
-
-        protected Map<String, BlockCollisionConfigEntry> rawBlockSpreadCollisionMap = Collections.emptyMap();
-        protected Map<String, BlockCollisionConfigEntry> rawBlockDemoteCollisionMap = Collections.emptyMap();
-
-        @Nullable
-        protected transient Object2ObjectMap<String, BlockCollisionConfigEntry> blockSpreadCollisionMap = null;
-        @Nullable
-        protected transient Object2ObjectMap<String, BlockCollisionConfigEntry> blockDemoteCollisionMap = null;
-
-        @Nonnull
-        public Object2ObjectMap<String, BlockCollisionConfigEntry> getSpreadCollisionMap() {
-            if (this.blockSpreadCollisionMap == null) {
-                Object2ObjectMap<String, BlockCollisionConfigEntry> collisionMap = new Object2ObjectOpenHashMap<>(this.rawBlockSpreadCollisionMap.size());
-
-                for(Map.Entry<String, BlockCollisionConfigEntry> entry : this.rawBlockSpreadCollisionMap.entrySet()) {
-                    var block = BlockType.getAssetMap().getAsset(entry.getKey());
-
-                    if(block != null) {
-                        String blockId = block.getId();
-                        if (blockId != null && !blockId.isEmpty()) {
-                            collisionMap.put(blockId, entry.getValue());
-                        }
-                    }
-                }
-
-                this.blockSpreadCollisionMap = collisionMap;
-            }
-
-            return this.blockSpreadCollisionMap;
-        }
-
-        @Nonnull
-        public Object2ObjectMap<String, BlockCollisionConfigEntry> getDemoteCollisionMap() {
-            if (this.blockDemoteCollisionMap == null) {
-                Object2ObjectMap<String, BlockCollisionConfigEntry> collisionMap = new Object2ObjectOpenHashMap<>(this.rawBlockDemoteCollisionMap.size());
-
-                for(Map.Entry<String, BlockCollisionConfigEntry> entry : this.rawBlockDemoteCollisionMap.entrySet()) {
-                    var block = BlockType.getAssetMap().getAsset(entry.getKey());
-
-                    if(block != null) {
-                        String blockId = block.getId();
-                        if (blockId != null && !blockId.isEmpty()) {
-                            collisionMap.put(blockId, entry.getValue());
-                        }
-                    }
-                }
-
-                this.blockDemoteCollisionMap = collisionMap;
-            }
-
-            return this.blockDemoteCollisionMap;
-        }
-
-        @Nonnull
-        public Object2ObjectMap<String, BlockCollisionConfigEntry> getCollisionMap(FlowPhase flowPhase) {
-            if(flowPhase == FlowPhase.Spread) {
-                return getSpreadCollisionMap();
-            } else {
-                return getDemoteCollisionMap();
-            }
-        }
-
-
-        static {
-            CODEC = BuilderCodec.builder(BlockCollisionConfig.class, BlockCollisionConfig::new)
-                    .appendInherited(new KeyedCodec<>("Spread", new MapCodec<>(BlockCollisionConfigEntry.CODEC, HashMap::new)), (ticker, o) -> ticker.rawBlockSpreadCollisionMap = MapUtil.combineUnmodifiable(ticker.rawBlockSpreadCollisionMap, o), (ticker) -> ticker.rawBlockSpreadCollisionMap, (ticker, parent) -> ticker.rawBlockSpreadCollisionMap = parent.rawBlockSpreadCollisionMap).documentation("Defines what happens when this fluid touches a block").add()
-                    .appendInherited(new KeyedCodec<>("Demote", new MapCodec<>(BlockCollisionConfigEntry.CODEC, HashMap::new)), (ticker, o) -> ticker.rawBlockDemoteCollisionMap = MapUtil.combineUnmodifiable(ticker.rawBlockDemoteCollisionMap, o), (ticker) -> ticker.rawBlockDemoteCollisionMap, (ticker, parent) -> ticker.rawBlockDemoteCollisionMap = parent.rawBlockDemoteCollisionMap).documentation("Defines what happens when this fluid stops touching a specific block").add()
-                    .build();
-        }
-    }
-
-
-    public static class BlockCollisionConfigEntry {
-        public static final BuilderCodec<BlockCollisionConfigEntry> CODEC;
-        protected String blockToPlace;
-        protected String blockState = "";
-        protected int blockToPlaceIndex = Integer.MIN_VALUE;
-        protected String soundEvent;
-        protected int soundEventIndex = Integer.MIN_VALUE;
-
-        public int getBlockToPlaceIndex() {
-            if (this.blockToPlaceIndex == Integer.MIN_VALUE && this.blockToPlace != null) {
-                this.blockToPlaceIndex = BlockType.getBlockIdOrUnknown(this.blockToPlace, "Unknown block type %s", this.blockToPlace);
-            }
-
-            return this.blockToPlaceIndex;
-        }
-
-        public String getBlockToPlace() {
-            return blockToPlace;
-        }
-
-
-        public String getBlockState() {
-            return blockState;
-        }
-
-        public int getSoundEventIndex() {
-            if (this.soundEventIndex == Integer.MIN_VALUE && this.soundEvent != null) {
-                this.soundEventIndex = SoundEvent.getAssetMap().getIndex(this.soundEvent);
-            }
-
-            return this.soundEventIndex;
-        }
-
-        static {
-            CODEC = BuilderCodec.builder(BlockCollisionConfigEntry.class, BlockCollisionConfigEntry::new)
-                    .appendInherited(new KeyedCodec<>("Block", Codec.STRING), (o, v) -> o.blockToPlace = v, (o) -> o.blockToPlace, (o, p) -> o.blockToPlace = p.blockToPlace).documentation("The block to place when a collision occurs").add()
-                    .appendInherited(new KeyedCodec<>("BlockState", Codec.STRING), (o, v) -> o.blockState = v, (o) -> o.blockState, (o, p) -> o.blockState = p.blockState).documentation("The block state of the block that gets placed").add()
-                    .appendInherited(new KeyedCodec<>("SoundEvent", Codec.STRING), (o, v) -> o.soundEvent = v, (o) -> o.soundEvent, (o, p) -> o.soundEvent = p.soundEvent).addValidator(SoundEvent.VALIDATOR_CACHE.getValidator()).add()
-                    .build();
-
-        }
-    }
-
-    public static class FluidCollisionConfig {
-        public static final BuilderCodec<FluidCollisionConfig> CODEC;
-        private String blockToPlace;
-        private int blockToPlaceIndex = Integer.MIN_VALUE;
-        public boolean placeFluid = false;
-        private String soundEvent;
-        private int soundEventIndex = Integer.MIN_VALUE;
-
-        public int getBlockToPlaceIndex() {
-            if (this.blockToPlaceIndex == Integer.MIN_VALUE && this.blockToPlace != null) {
-                this.blockToPlaceIndex = BlockType.getBlockIdOrUnknown(this.blockToPlace, "Unknown block type %s", this.blockToPlace);
-            }
-
-            return this.blockToPlaceIndex;
-        }
-
-        public int getSoundEventIndex() {
-            if (this.soundEventIndex == Integer.MIN_VALUE && this.soundEvent != null) {
-                this.soundEventIndex = SoundEvent.getAssetMap().getIndex(this.soundEvent);
-            }
-
-            return this.soundEventIndex;
-        }
-
-        static {
-            CODEC = (BuilderCodec.builder(FluidCollisionConfig.class, FluidCollisionConfig::new)
-                    .appendInherited(new KeyedCodec<>("BlockToPlace", Codec.STRING), (o, v) -> o.blockToPlace = v, (o) -> o.blockToPlace, (o, p) -> o.blockToPlace = p.blockToPlace).documentation("The block to place when a collision occurs").add())
-                    .appendInherited(new KeyedCodec<>("SoundEvent", Codec.STRING), (o, v) -> o.soundEvent = v, (o) -> o.soundEvent, (o, p) -> o.soundEvent = p.soundEvent).addValidator(SoundEvent.VALIDATOR_CACHE.getValidator()).add()
-                    .appendInherited(new KeyedCodec<>("PlaceFluid", Codec.BOOLEAN), (o, v) -> o.placeFluid = v, (o) -> o.placeFluid, (o, p) -> o.placeFluid = p.placeFluid).documentation("Whether to still place the fluid on collision").add()
-                    .build();
-        }
-    }
 }
