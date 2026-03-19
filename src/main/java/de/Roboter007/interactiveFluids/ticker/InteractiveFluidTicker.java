@@ -408,7 +408,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                     fluidSection.setFluid(worldX, worldY, worldZ, 0, (byte) 0);
                     setTickingSurrounding(accessor, blockSection, worldX, worldY, worldZ);
 
-                    BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Demoted, BlockType.getAssetMap(), world, worldX, worldY, worldZ, accessor, blockSection);
+                    BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Demote, BlockType.getAssetMap(), world, worldX, worldY, worldZ, accessor, blockSection);
                     return Objects.requireNonNullElse(blockTickStrategy, BlockTickStrategy.SLEEP);
                 }
 
