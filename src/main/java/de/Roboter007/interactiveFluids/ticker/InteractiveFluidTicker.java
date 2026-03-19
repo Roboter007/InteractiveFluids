@@ -16,6 +16,7 @@ import com.hypixel.hytale.protocol.*;
 import com.hypixel.hytale.server.core.asset.type.blockhitbox.BlockBoundingBoxes;
 import com.hypixel.hytale.server.core.asset.type.blocktick.BlockTickStrategy;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.StateData;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.asset.type.fluid.FluidTicker;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
@@ -25,8 +26,10 @@ import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import de.Roboter007.interactiveFluids.InteractiveFluidsPlugin;
+import de.Roboter007.interactiveFluids.ticker.collision.block.BCConditionConfig;
+import de.Roboter007.interactiveFluids.ticker.collision.block.BCConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BlockCollisionConfig;
-import de.Roboter007.interactiveFluids.ticker.collision.block.BlockCollisionConfigEntry;
+import de.Roboter007.interactiveFluids.ticker.collision.block.BCResultConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.fluid.FluidCollisionConfig;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowShapeConfig;
@@ -219,13 +222,21 @@ public class InteractiveFluidTicker extends FluidTicker {
             int blockId = otherBlockSection.get(blockX, blockY, blockZ);
             BlockType block = blockMap.getAsset(blockId);
             String otherBlockID = block.getId();
+
             if (otherBlockID != null && !otherBlockID.isEmpty() && !otherBlockID.equals("Empty")) {
-                BlockCollisionConfigEntry config = this.getBlockCollisionConfig().getCollisionMap(flowPhase).get(otherBlockID);
+                StateData blockStateData = block.getState();
+                String blockState = null;
+                if(blockStateData != null) {
+                    blockState = blockStateData.getId();
+                }
+
+                BCConfigEntry config = this.getBlockCollisionConfig().getCollision(flowPhase, otherBlockID, blockState);
 
                 if (config != null) {
-                    String blockState = config.getBlockState();
-                    if (!blockState.isEmpty()) {
-                        block = block.getBlockForState(blockState);
+                    String expectedBlockState = config.getConditionConfig().getBlockState();
+
+                    if (!expectedBlockState.isEmpty()) {
+                        block = block.getBlockForState(expectedBlockState);
                     }
 
                     if (block != null && block.getDrawType() != DrawType.Cube) {
@@ -268,13 +279,16 @@ public class InteractiveFluidTicker extends FluidTicker {
         return this.getFlowShapeConfig().getFlowShape().getBlockPosFunction().apply(getFlowShapeConfig().getShapeGenConfig());
     }
 
-    private static void executeCollision(@Nonnull World world, @Nonnull Accessor accessor, BlockSection blockSection, @Nonnull BlockCollisionConfigEntry config, int blockX, int blockY, int blockZ) {
-        int blockToPlace = config.getBlockToPlaceIndex();
+    private static void executeCollision(@Nonnull World world, @Nonnull Accessor accessor, BlockSection blockSection, @Nonnull BCConfigEntry config, int blockX, int blockY, int blockZ) {
+        BCConditionConfig conditionConfig = config.getConditionConfig();
+        BCResultConfig resultConfig = config.getResultConfig();
+
+        int blockToPlace = resultConfig.getBlockToPlaceIndex();
         BlockType block = BlockType.getAssetMap().getAsset(blockToPlace);
         if (blockToPlace != Integer.MIN_VALUE) {
-            if(!config.getBlockState().isEmpty()) {
+            if(!resultConfig.getBlockState().isEmpty()) {
                 if(block != null) {
-                    block = block.getBlockForState(config.getBlockState());
+                    block = block.getBlockForState(resultConfig.getBlockState());
                 }
             }
             setBlock(accessor, blockX, blockY, blockZ, block);
@@ -283,7 +297,7 @@ public class InteractiveFluidTicker extends FluidTicker {
             setTickingSurrounding(accessor, blockSection, blockX, blockY, blockZ);
         }
 
-        int soundEvent = config.getSoundEventIndex();
+        int soundEvent = resultConfig.getSoundEventIndex();
         if (soundEvent != Integer.MIN_VALUE) {
             world.execute(() -> SoundUtil.playSoundEvent3d(soundEvent, SoundCategory.SFX, (double)blockX, (double)blockY, (double)blockZ, world.getEntityStore().getStore()));
         }
