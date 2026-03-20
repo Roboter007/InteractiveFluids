@@ -6,10 +6,10 @@ plugins {
 group = "de.Roboter007"
 version = "0.7.0"
 val javaVersion = 25
-val home = System.getenv("HOME")
+val home: String? = System.getenv("HOME")
 val os = System.getProperty("os.name").lowercase()
 
-val appData = when {
+val appData: String? = when {
     os.contains("win") ->
         System.getenv("APPDATA")
 
