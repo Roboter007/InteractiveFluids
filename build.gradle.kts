@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "de.Roboter007"
-version = "0.6.0"
+version = "0.7.0"
 val javaVersion = 25
 val home = System.getenv("HOME")
 val os = System.getProperty("os.name").lowercase()
@@ -39,17 +39,11 @@ repositories {
     maven("https://maven.hytale-modding.info/releases") {
         name = "HytaleModdingReleases"
     }
-    /*maven("https://cursemaven.com") {
-        name = "cursemaven"
-    } */
 }
 
 dependencies {
     compileOnly(libs.jetbrains.annotations)
     compileOnly(libs.jspecify)
-
-//    compileOnly("curse.maven:hyxin-1405491:7399430")
-//    annotationProcessor("curse.maven:hyxin-1405491:7399430")
 }
 
 hytale {
