@@ -6,7 +6,7 @@ import com.hypixel.hytale.codec.codecs.map.MapCodec;
 import com.hypixel.hytale.common.util.MapUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
-import it.unimi.dsi.fastutil.Pair;
+import de.Roboter007.interactiveFluids.ticker.utils.IFTOperators;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
@@ -36,9 +36,13 @@ public class BlockCollisionConfig {
                 BCConditionConfig conditionConfig = entry.getValue().getConditionConfig();
                 BCResultConfig resultConfig = entry.getValue().getResultConfig();
 
-                var block = BlockType.getAssetMap().getAsset(conditionConfig.getBlockToPlace());
+                if (conditionConfig.getBlock().equals(IFTOperators.ALL_BLOCKS)) {
+                    collisionMap.put(conditionConfig, resultConfig);
+                    continue;
+                }
+                var block = BlockType.getAssetMap().getAsset(conditionConfig.getBlock());
 
-                if(block != null) {
+                if (block != null) {
                     String blockId = block.getId();
                     if (blockId != null && !blockId.isEmpty()) {
                         collisionMap.put(conditionConfig, resultConfig);
@@ -61,9 +65,14 @@ public class BlockCollisionConfig {
                 BCConditionConfig conditionConfig = entry.getValue().getConditionConfig();
                 BCResultConfig resultConfig = entry.getValue().getResultConfig();
 
-                var block = BlockType.getAssetMap().getAsset(conditionConfig.getBlockToPlace());
+                if (conditionConfig.getBlock().equals(IFTOperators.ALL_BLOCKS)) {
+                    collisionMap.put(conditionConfig, resultConfig);
+                    continue;
+                }
 
-                if(block != null) {
+                var block = BlockType.getAssetMap().getAsset(conditionConfig.getBlock());
+
+                if (block != null) {
                     String blockId = block.getId();
                     if (blockId != null && !blockId.isEmpty()) {
                         collisionMap.put(conditionConfig, resultConfig);
@@ -90,7 +99,7 @@ public class BlockCollisionConfig {
     public BCConfigEntry getCollision(FlowPhase flowPhase, String blockID, @Nullable String blockState) {
 
         for(Map.Entry<BCConditionConfig, BCResultConfig> entry : this.getCollisionMap(flowPhase).entrySet()) {
-            if(entry.getKey().blockToPlace.equals(blockID)) {
+            if(entry.getKey().block.equals(blockID)) {
                 if(blockState != null) {
                     if(entry.getKey().blockState.equals(blockState)) {
                         return new BCConfigEntry(entry.getKey(), entry.getValue());
@@ -98,6 +107,16 @@ public class BlockCollisionConfig {
                 } else {
                     return new BCConfigEntry(entry.getKey(), entry.getValue());
                 }
+            }
+        }
+        return getCollisionForAllBlocks(flowPhase);
+    }
+
+    @Nullable
+    public BCConfigEntry getCollisionForAllBlocks(FlowPhase flowPhase) {
+        for(Map.Entry<BCConditionConfig, BCResultConfig> entry : this.getCollisionMap(flowPhase).entrySet()) {
+            if(entry.getKey().block.equals(IFTOperators.ALL_BLOCKS)) {
+                return new BCConfigEntry(entry.getKey(), entry.getValue());
             }
         }
         return null;
