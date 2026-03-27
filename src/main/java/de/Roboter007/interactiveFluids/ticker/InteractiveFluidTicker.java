@@ -227,7 +227,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                 StateData blockStateData = block.getState();
                 String blockState = null;
                 if(blockStateData != null) {
-                    blockState = blockStateData.getId();
+                    blockState = block.getData().getContainerKey(BlockType.class);
                 }
 
                 BCConfigEntry config = this.getBlockCollisionConfig().getCollision(flowPhase, otherBlockID, blockState);
