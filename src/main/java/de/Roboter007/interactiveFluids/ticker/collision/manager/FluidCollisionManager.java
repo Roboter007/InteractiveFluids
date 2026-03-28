@@ -21,8 +21,9 @@ public class FluidCollisionManager {
         queue.add(new PendingChange(x, y, z, type, executeAt));
     }
 
-    //ToDo: check if change is even relevant -> for example when the block changes
+    //ToDo: check if change is even relevant -> for example when the block changes (may be do something with)
     //ToDo: add option for submerged blocks like grass if they should be affected or not
+    //ToDo: make it possible to show a breaking animation
     public static void tick(World world) {
         if (queue.isEmpty()) return;
 
@@ -49,16 +50,16 @@ public class FluidCollisionManager {
     }
 
     private static void tickSurrounding(PendingChange change, WorldChunk chunk) {
-        int worldX = change.x();
-        int worldY = change.y();
-        int worldZ = change.z();
+        int blockX = change.x();
+        int blockY = change.y();
+        int blockZ = change.z();
 
         for (int y = -1; y <= 1; y++) {
             for (int z = -1; z <= 1; z++) {
                 for (int x = -1; x <= 1; x++) {
-                    int bx = worldX + x;
-                    int by = worldY + y;
-                    int bz = worldZ + z;
+                    int bx = blockX + x;
+                    int by = blockY + y;
+                    int bz = blockZ + z;
                     if (chunk != null) {
                         chunk.setTicking(bx, by, bz, true);
                     }

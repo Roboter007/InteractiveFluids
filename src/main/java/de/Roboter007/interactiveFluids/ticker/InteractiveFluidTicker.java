@@ -236,6 +236,8 @@ public class InteractiveFluidTicker extends FluidTicker {
                     if (block != null && block.getDrawType() != DrawType.Cube) {
                         BlockBoundingBoxes blockBoundingBoxes = BlockBoundingBoxes.getAssetMap().getAsset(block.getHitboxType());
 
+                        //ToDo: possible fix for getting hitbox height or something?
+                        //BlockBoundingBoxes boxes = block.getData().getContainerKey((Class<? extends com.hypixel.hytale.assetstore.JsonAsset<BlockBoundingBoxes>>) BlockBoundingBoxes.class);
                         if (blockBoundingBoxes != null) {
                             // maxSearchHeight = 30 -> hardcoded due to missing possibility for getting the hitbox height
                             int dBlockY = blockY - getFluidPosition(30, block.getId(), otherBlockSection, blockMap, blockX, blockY, blockZ);
