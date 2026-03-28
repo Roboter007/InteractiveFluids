@@ -7,8 +7,6 @@ import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.codec.codecs.map.MapCodec;
 import com.hypixel.hytale.common.util.MapUtil;
-import com.hypixel.hytale.component.CommandBuffer;
-import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Vector2i;
 import com.hypixel.hytale.math.vector.Vector3i;
@@ -21,16 +19,13 @@ import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.asset.type.fluid.FluidTicker;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
-import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import de.Roboter007.interactiveFluids.InteractiveFluidsPlugin;
-import de.Roboter007.interactiveFluids.ticker.collision.block.BCConditionConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BCConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BlockCollisionConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BCResultConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.fluid.FluidCollisionConfig;
+import de.Roboter007.interactiveFluids.ticker.collision.manager.FluidCollisionManager;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowShapeConfig;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -38,7 +33,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.lang.reflect.Field;
 import java.util.*;
 
 public class InteractiveFluidTicker extends FluidTicker {
@@ -246,13 +240,11 @@ public class InteractiveFluidTicker extends FluidTicker {
                             // maxSearchHeight = 30 -> hardcoded due to missing possibility for getting the hitbox height
                             int dBlockY = blockY - getFluidPosition(30, block.getId(), otherBlockSection, blockMap, blockX, blockY, blockZ);
 
-                            otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, dBlockY, blockZ) : blockSection;
-                            executeCollision(world, accessor, otherBlockSection, config, blockX, dBlockY, blockZ);
+                            executeCollision(config, blockX, dBlockY, blockZ);
                         }
 
                     } else {
-                        otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, blockY, blockZ) : blockSection;
-                        executeCollision(world, accessor, otherBlockSection, config, blockX, blockY, blockZ);
+                        executeCollision(config, blockX, blockY, blockZ);
                     }
                 }
             }
@@ -279,74 +271,40 @@ public class InteractiveFluidTicker extends FluidTicker {
         return this.getFlowShapeConfig().getFlowShape().getBlockPosFunction().apply(getFlowShapeConfig().getShapeGenConfig());
     }
 
-    private static void executeCollision(@Nonnull World world, @Nonnull Accessor accessor, BlockSection blockSection, @Nonnull BCConfigEntry config, int blockX, int blockY, int blockZ) {
-        BCConditionConfig conditionConfig = config.getConditionConfig();
+
+    private static void executeCollision(@Nonnull BCConfigEntry config, int blockX, int blockY, int blockZ) {
         BCResultConfig resultConfig = config.getResultConfig();
+        int blockToPlaceId = resultConfig.getBlockToPlaceIndex();
 
-        int blockToPlace = resultConfig.getBlockToPlaceIndex();
-        BlockType block = BlockType.getAssetMap().getAsset(blockToPlace);
-        if (blockToPlace != Integer.MIN_VALUE) {
-            if(!resultConfig.getBlockState().isEmpty()) {
-                if(block != null) {
-                    block = block.getBlockForState(resultConfig.getBlockState());
-                }
-            }
-            setBlock(accessor, blockX, blockY, blockZ, block);
-
-
-            setTickingSurrounding(accessor, blockSection, blockX, blockY, blockZ);
+        if (blockToPlaceId == Integer.MIN_VALUE) {
+            return;
         }
 
-        int soundEvent = resultConfig.getSoundEventIndex();
-        if (soundEvent != Integer.MIN_VALUE) {
-            world.execute(() -> SoundUtil.playSoundEvent3d(soundEvent, SoundCategory.SFX, (double)blockX, (double)blockY, (double)blockZ, world.getEntityStore().getStore()));
+        BlockType block = BlockType.getAssetMap().getAsset(blockToPlaceId);
+        if (block != null && !resultConfig.getBlockState().isEmpty()) {
+            block = block.getBlockForState(resultConfig.getBlockState());
         }
+
+        FluidCollisionManager.addDelayedCollision(blockX, blockY, blockZ, block, resultConfig.getBlockPlaceDelay());
     }
 
-    public static void setBlock(Accessor accessor, int x, int y, int z, BlockType blockType) {
 
-        if(accessor instanceof CachedAccessor cachedAccessor) {
-            try {
-                Field field = cachedAccessor.getClass().getDeclaredField("commandBuffer");
-                field.setAccessible(true);
-                CommandBuffer<ChunkStore> commandBuffer = (CommandBuffer<ChunkStore>) field.get(accessor);
-
-                if(commandBuffer == null) {
-                    InteractiveFluidsPlugin.get().getLogger().atWarning().log("Failed to load Command Buffer!!!");
-                    return;
-                }
-
-                Ref<ChunkStore> chunk = cachedAccessor.getChunk(ChunkUtil.chunkCoordinate(x), ChunkUtil.chunkCoordinate(z));
-                if (chunk != null && chunk.isValid()) {
-                    commandBuffer.run(store -> {
-                        if (chunk.isValid()) {
-                            WorldChunk wc = store.getComponent(chunk, WorldChunk.getComponentType());
-                            if (wc != null) {
-                                wc.setBlock(x, y, z, blockType);
-                            }
-                        }
-                    });
-                }
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
 
 
     @SuppressWarnings("removal")
     private static boolean executeCollision(@Nonnull World world, @Nonnull Accessor accessor, @Nonnull FluidSection fluidSection, BlockSection blockSection, @Nonnull FluidCollisionConfig config, int blockX, int blockY, int blockZ) {
+
         int blockToPlace = config.getBlockToPlaceIndex();
         if (blockToPlace != Integer.MIN_VALUE) {
             accessor.setBlock(blockX, blockY, blockZ, blockToPlace);
 
             setTickingSurrounding(accessor, blockSection, blockX, blockY, blockZ);
-            fluidSection.setFluid(blockX, blockY, blockZ, 0, (byte)0);
+            fluidSection.setFluid(blockX, blockY, blockZ, 0, (byte) 0);
         }
 
         int soundEvent = config.getSoundEventIndex();
         if (soundEvent != Integer.MIN_VALUE) {
-            world.execute(() -> SoundUtil.playSoundEvent3d(soundEvent, SoundCategory.SFX, (double)blockX, (double)blockY, (double)blockZ, world.getEntityStore().getStore()));
+            world.execute(() -> SoundUtil.playSoundEvent3d(soundEvent, SoundCategory.SFX, (double) blockX, (double) blockY, (double) blockZ, world.getEntityStore().getStore()));
         }
 
         return !config.placeFluid;

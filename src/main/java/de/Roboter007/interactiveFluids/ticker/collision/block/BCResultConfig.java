@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
 public class BCResultConfig {
     public static final BuilderCodec<BCResultConfig> CODEC;
 
+    protected int blockPlaceDelay = 0;
     protected String blockToPlace;
     protected String blockState = "";
     protected int blockToPlaceIndex = Integer.MIN_VALUE;
@@ -28,6 +29,9 @@ public class BCResultConfig {
         return blockToPlace;
     }
 
+    public int getBlockPlaceDelay() {
+        return blockPlaceDelay;
+    }
 
     public String getBlockState() {
         return blockState;
@@ -45,6 +49,7 @@ public class BCResultConfig {
         CODEC = BuilderCodec.builder(BCResultConfig.class, BCResultConfig::new)
                 .appendInherited(new KeyedCodec<>("Block", Codec.STRING), (o, v) -> o.blockToPlace = v, (o) -> o.blockToPlace, (o, p) -> o.blockToPlace = p.blockToPlace).documentation("The block to place when a collision occurs").add()
                 .appendInherited(new KeyedCodec<>("BlockState", Codec.STRING), (o, v) -> o.blockState = v, (o) -> o.blockState, (o, p) -> o.blockState = p.blockState).documentation("The block state of the block that gets placed").add()
+                .appendInherited(new KeyedCodec<>("BlockPlaceDelay", Codec.INTEGER), (o, v) -> o.blockPlaceDelay = v, (o) -> o.blockPlaceDelay, (o, p) -> o.blockPlaceDelay = p.blockPlaceDelay).documentation("If defined int will delay the block placement by a certain amount in seconds").add()
                 .appendInherited(new KeyedCodec<>("SoundEvent", Codec.STRING), (o, v) -> o.soundEvent = v, (o) -> o.soundEvent, (o, p) -> o.soundEvent = p.soundEvent).addValidator(SoundEvent.VALIDATOR_CACHE.getValidator()).add()
                 .build();
 

@@ -1,10 +1,16 @@
 package de.Roboter007.interactiveFluids;
 
 import com.hypixel.hytale.logger.HytaleLogger;
+import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.asset.type.fluid.FluidTicker;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
+import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.server.core.universe.world.World;
 import de.Roboter007.interactiveFluids.ticker.InteractiveFluidTicker;
+import de.Roboter007.interactiveFluids.ticker.collision.manager.FluidCollisionManager;
+
+import java.util.concurrent.TimeUnit;
 
 public class InteractiveFluidsPlugin extends JavaPlugin {
 
@@ -27,6 +33,14 @@ public class InteractiveFluidsPlugin extends JavaPlugin {
 
     @Override
     protected void start() {
+        HytaleServer.SCHEDULED_EXECUTOR.scheduleAtFixedRate(() -> {
+            Universe universe = Universe.get();
+            if (universe != null) {
+                for (World world : universe.getWorlds().values()) {
+                    world.execute(() -> FluidCollisionManager.tick(world));
+                }
+            }
+        }, 0, 50, TimeUnit.MILLISECONDS);
     }
 
     public static InteractiveFluidsPlugin get() {
