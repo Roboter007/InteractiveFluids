@@ -9,12 +9,14 @@ import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
 public class BCResultConfig {
     public static final BuilderCodec<BCResultConfig> CODEC;
 
-    protected int blockPlaceDelay = 0;
+    protected long blockPlaceDelay = 0;
     protected String blockToPlace;
     protected String blockState = "";
     protected int blockToPlaceIndex = Integer.MIN_VALUE;
     protected String soundEvent;
     protected int soundEventIndex = Integer.MIN_VALUE;
+    //protected boolean ignoreWhenSubmerged = false;
+    protected boolean useBreakAnimation = false;
 
     public int getBlockToPlaceIndex() {
         if (this.blockToPlaceIndex == Integer.MIN_VALUE && this.blockToPlace != null) {
@@ -29,7 +31,7 @@ public class BCResultConfig {
         return blockToPlace;
     }
 
-    public int getBlockPlaceDelay() {
+    public long getBlockPlaceDelay() {
         return blockPlaceDelay;
     }
 
@@ -45,12 +47,22 @@ public class BCResultConfig {
         return this.soundEventIndex;
     }
 
+    /*public boolean isIgnoreWhenSubmerged() {
+        return this.ignoreWhenSubmerged;
+    } */
+
+    public boolean useBreakAnimation() {
+        return this.useBreakAnimation;
+    }
+
     static {
         CODEC = BuilderCodec.builder(BCResultConfig.class, BCResultConfig::new)
                 .appendInherited(new KeyedCodec<>("Block", Codec.STRING), (o, v) -> o.blockToPlace = v, (o) -> o.blockToPlace, (o, p) -> o.blockToPlace = p.blockToPlace).documentation("The block to place when a collision occurs").add()
                 .appendInherited(new KeyedCodec<>("BlockState", Codec.STRING), (o, v) -> o.blockState = v, (o) -> o.blockState, (o, p) -> o.blockState = p.blockState).documentation("The block state of the block that gets placed").add()
-                .appendInherited(new KeyedCodec<>("BlockPlaceDelay", Codec.INTEGER), (o, v) -> o.blockPlaceDelay = v, (o) -> o.blockPlaceDelay, (o, p) -> o.blockPlaceDelay = p.blockPlaceDelay).documentation("If defined int will delay the block placement by a certain amount in seconds").add()
+                .appendInherited(new KeyedCodec<>("BlockPlaceDelay", Codec.LONG), (o, v) -> o.blockPlaceDelay = v, (o) -> o.blockPlaceDelay, (o, p) -> o.blockPlaceDelay = p.blockPlaceDelay).documentation("If defined int will delay the block placement by a certain amount in seconds").add()
                 .appendInherited(new KeyedCodec<>("SoundEvent", Codec.STRING), (o, v) -> o.soundEvent = v, (o) -> o.soundEvent, (o, p) -> o.soundEvent = p.soundEvent).addValidator(SoundEvent.VALIDATOR_CACHE.getValidator()).add()
+                //.appendInherited(new KeyedCodec<>("IgnoreWhenSubmerged", Codec.BOOLEAN), (o, v) -> o.ignoreWhenSubmerged = v, (o) -> o.ignoreWhenSubmerged, (o, p) -> o.ignoreWhenSubmerged = p.ignoreWhenSubmerged).documentation("If true, the conversion will be skipped while the target block is submerged").add()
+                .appendInherited(new KeyedCodec<>("UseBreakAnimation", Codec.BOOLEAN), (o, v) -> o.useBreakAnimation = v, (o) -> o.useBreakAnimation, (o, p) -> o.useBreakAnimation = p.useBreakAnimation).documentation("If true, the block damage overlay is shown while the delayed conversion is pending").add()
                 .build();
 
     }

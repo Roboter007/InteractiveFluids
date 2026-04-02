@@ -6,7 +6,7 @@ import com.hypixel.hytale.codec.codecs.map.MapCodec;
 import com.hypixel.hytale.common.util.MapUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
-import de.Roboter007.interactiveFluids.ticker.utils.IFTOperators;
+import de.Roboter007.interactiveFluids.ticker.utils.IFOperators;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
@@ -36,7 +36,7 @@ public class BlockCollisionConfig {
                 BCConditionConfig conditionConfig = entry.getValue().getConditionConfig();
                 BCResultConfig resultConfig = entry.getValue().getResultConfig();
 
-                if (conditionConfig.getBlock().equals(IFTOperators.ALL_BLOCKS)) {
+                if (conditionConfig.getBlock().equals(IFOperators.ALL_BLOCKS)) {
                     collisionMap.put(conditionConfig, resultConfig);
                     continue;
                 }
@@ -65,7 +65,7 @@ public class BlockCollisionConfig {
                 BCConditionConfig conditionConfig = entry.getValue().getConditionConfig();
                 BCResultConfig resultConfig = entry.getValue().getResultConfig();
 
-                if (conditionConfig.getBlock().equals(IFTOperators.ALL_BLOCKS)) {
+                if (conditionConfig.getBlock().equals(IFOperators.ALL_BLOCKS)) {
                     collisionMap.put(conditionConfig, resultConfig);
                     continue;
                 }
@@ -97,25 +97,33 @@ public class BlockCollisionConfig {
 
     @Nullable
     public BCConfigEntry getCollision(FlowPhase flowPhase, String blockID, @Nullable String blockState) {
+        for (Map.Entry<BCConditionConfig, BCResultConfig> entry : this.getCollisionMap(flowPhase).entrySet()) {
+            BCConditionConfig condition = entry.getKey();
+            if (condition == null || condition.block == null) {
+                continue;
+            }
 
-        for(Map.Entry<BCConditionConfig, BCResultConfig> entry : this.getCollisionMap(flowPhase).entrySet()) {
-            if(entry.getKey().block.equals(blockID)) {
-                if(blockState != null) {
-                    if(entry.getKey().blockState.equals(blockState)) {
-                        return new BCConfigEntry(entry.getKey(), entry.getValue());
-                    }
-                } else {
-                    return new BCConfigEntry(entry.getKey(), entry.getValue());
-                }
+            boolean isWildcard = condition.block.equals(IFOperators.ALL_BLOCKS);
+            if (!isWildcard && !condition.block.equals(blockID)) {
+                continue;
+            }
+
+            String requiredState = condition.blockState;
+            if (requiredState == null || requiredState.isEmpty()) {
+                return new BCConfigEntry(condition, entry.getValue());
+            }
+
+            if (blockState != null && requiredState.equals(blockState)) {
+                return new BCConfigEntry(condition, entry.getValue());
             }
         }
-        return getCollisionForAllBlocks(flowPhase);
+        return null;
     }
 
     @Nullable
     public BCConfigEntry getCollisionForAllBlocks(FlowPhase flowPhase) {
         for(Map.Entry<BCConditionConfig, BCResultConfig> entry : this.getCollisionMap(flowPhase).entrySet()) {
-            if(entry.getKey().block.equals(IFTOperators.ALL_BLOCKS)) {
+            if(entry.getKey().block.equals(IFOperators.ALL_BLOCKS)) {
                 return new BCConfigEntry(entry.getKey(), entry.getValue());
             }
         }

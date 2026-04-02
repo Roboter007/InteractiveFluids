@@ -94,7 +94,7 @@ public class InteractiveFluidTicker extends FluidTicker {
         if (worldY == 0) {
             return BlockTickStrategy.SLEEP;
         } else {
-            BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Spread, BLOCK_MAP, world, worldX, worldY, worldZ, accessor, blockSection);
+            BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Spread, fluidId, BLOCK_MAP, world, worldX, worldY, worldZ, accessor, blockSection);
             if(blockTickStrategy != null) {
                 return blockTickStrategy;
             }
@@ -197,7 +197,7 @@ public class InteractiveFluidTicker extends FluidTicker {
     }
 
     @Nullable
-    public BlockTickStrategy checkNearbyBlocks(FlowPhase flowPhase, BlockTypeAssetMap<String, BlockType> blockMap, World world, int worldX, int worldY, int worldZ, Accessor accessor, BlockSection blockSection) {
+    public BlockTickStrategy checkNearbyBlocks(FlowPhase flowPhase, int fluidId, BlockTypeAssetMap<String, BlockType> blockMap, World world, int worldX, int worldY, int worldZ, Accessor accessor, BlockSection blockSection) {
         for (Vector3i vector3i : getNeighborBlockPos()) {
             int x = vector3i.x;
             int y = vector3i.y;
@@ -215,13 +215,16 @@ public class InteractiveFluidTicker extends FluidTicker {
 
             int blockId = otherBlockSection.get(blockX, blockY, blockZ);
             BlockType block = blockMap.getAsset(blockId);
-            String otherBlockID = block.getId();
+            if (block == null) {
+                continue;
+            }
 
+            String otherBlockID = block.getId();
             if (otherBlockID != null && !otherBlockID.isEmpty() && !otherBlockID.equals("Empty")) {
                 StateData blockStateData = block.getState();
                 String blockState = null;
                 if(blockStateData != null) {
-                    blockState = block.getData().getContainerKey(BlockType.class);
+                    blockState = block.getStateForBlock(block);
                 }
 
                 BCConfigEntry config = this.getBlockCollisionConfig().getCollision(flowPhase, otherBlockID, blockState);
@@ -242,11 +245,11 @@ public class InteractiveFluidTicker extends FluidTicker {
                             // maxSearchHeight = 30 -> hardcoded due to missing possibility for getting the hitbox height
                             int dBlockY = blockY - getFluidPosition(30, block.getId(), otherBlockSection, blockMap, blockX, blockY, blockZ);
 
-                            executeCollision(config, blockX, dBlockY, blockZ);
+                            executeCollision(world, fluidId, config, otherBlockSection, blockX, dBlockY, blockZ);
                         }
 
                     } else {
-                        executeCollision(config, blockX, blockY, blockZ);
+                        executeCollision(world, fluidId, config, otherBlockSection, blockX, blockY, blockZ);
                     }
                 }
             }
@@ -274,20 +277,37 @@ public class InteractiveFluidTicker extends FluidTicker {
     }
 
 
-    private static void executeCollision(@Nonnull BCConfigEntry config, int blockX, int blockY, int blockZ) {
+    private static void executeCollision(@Nonnull World world, int fluidId, @Nonnull BCConfigEntry config, BlockSection targetSection, int blockX, int blockY, int blockZ) {
         BCResultConfig resultConfig = config.getResultConfig();
-        int blockToPlaceId = resultConfig.getBlockToPlaceIndex();
-
-        if (blockToPlaceId == Integer.MIN_VALUE) {
+        BlockType expectedType = BlockType.getAssetMap().getAsset(targetSection.get(blockX, blockY, blockZ));
+        if (expectedType == null) {
             return;
         }
 
-        BlockType block = BlockType.getAssetMap().getAsset(blockToPlaceId);
-        if (block != null && !resultConfig.getBlockState().isEmpty()) {
-            block = block.getBlockForState(resultConfig.getBlockState());
+        BlockType resultBlock = null;
+        int blockToPlaceId = resultConfig.getBlockToPlaceIndex();
+        if (blockToPlaceId != Integer.MIN_VALUE) {
+            resultBlock = BlockType.getAssetMap().getAsset(blockToPlaceId);
+            if (resultBlock != null && !resultConfig.getBlockState().isEmpty()) {
+                resultBlock = resultBlock.getBlockForState(resultConfig.getBlockState());
+            }
+            if (resultBlock == null) {
+                return;
+            }
         }
 
-        FluidCollisionManager.addDelayedCollision(blockX, blockY, blockZ, block, resultConfig.getBlockPlaceDelay());
+        //ToDo: fix laggs
+        FluidCollisionManager.addDelayedCollision(
+                world,
+                blockX,
+                blockY,
+                blockZ,
+                FluidCollisionManager.SimplifiedBlock.ofType(expectedType),
+                resultBlock,
+                fluidId,
+                resultConfig.getBlockPlaceDelay(),
+                resultConfig.useBreakAnimation()
+        );
     }
 
 
@@ -368,7 +388,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                     fluidSection.setFluid(worldX, worldY, worldZ, 0, (byte) 0);
                     setTickingSurrounding(accessor, blockSection, worldX, worldY, worldZ);
 
-                    BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Demote, BlockType.getAssetMap(), world, worldX, worldY, worldZ, accessor, blockSection);
+                    BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Demote, fluidId, BlockType.getAssetMap(), world, worldX, worldY, worldZ, accessor, blockSection);
                     return Objects.requireNonNullElse(blockTickStrategy, BlockTickStrategy.SLEEP);
                 }
 
