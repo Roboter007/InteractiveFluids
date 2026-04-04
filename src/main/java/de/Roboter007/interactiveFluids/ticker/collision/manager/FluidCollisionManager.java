@@ -1,52 +1,26 @@
 package de.Roboter007.interactiveFluids.ticker.collision.manager;
 
-import com.hypixel.hytale.assetstore.AssetExtraInfo;
 import com.hypixel.hytale.math.util.ChunkUtil;
-import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
-import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import de.Roboter007.interactiveFluids.InteractiveFluidsPlugin;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.awt.desktop.QuitEvent;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.PriorityBlockingQueue;
 
 public final class FluidCollisionManager {
 
-    private FluidCollisionManager() {}
-
-    private static final int MAX_CHANGES_PER_TICK = 50;
     private static final ConcurrentHashMap<String, List<PendingChange>> QUEUES = new ConcurrentHashMap<>();
 
-    public record SimplifiedBlock(int id, AssetExtraInfo.Data data) {
-        public static SimplifiedBlock ofType(BlockType blockType) {
-            return new SimplifiedBlock(BlockType.getAssetMap().getIndex(blockType.getId()), blockType.getData());
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (!(o instanceof SimplifiedBlock(int id1, AssetExtraInfo.Data data1))) return false;
-            return id == id1 && Objects.equals(data, data1);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(id, data);
-        }
-    }
-
     private static final class PendingChange {
-        private final World world;
         private final int x;
         private final int y;
         private final int z;
-        private final SimplifiedBlock expectedBlock;
+        private final BlockType originalType;
         @Nullable
         private final BlockType resultType;
         private final int expectedFluidId;
@@ -59,18 +33,17 @@ public final class FluidCollisionManager {
 
         private float lastSentHealth = 1.0f;
 
-        private PendingChange(World world, int x, int y, int z, long delayedTicks, SimplifiedBlock expectedBlock, @Nullable BlockType resultType, int expectedFluidId, boolean showBreakAnimation) {
-            this.world = world;
+        private PendingChange(int x, int y, int z, long createdAtTick, long delayedTicks, BlockType originalType, @Nullable BlockType resultType, int expectedFluidId, boolean showBreakAnimation) {
             this.x = x;
             this.y = y;
             this.z = z;
             this.delayedTicks = delayedTicks;
-            this.expectedBlock = expectedBlock;
+            this.originalType = originalType;
             this.resultType = resultType;
             this.expectedFluidId = expectedFluidId;
             this.showBreakAnimation = showBreakAnimation;
 
-            this.createdAtTick = world.getTick();
+            this.createdAtTick = createdAtTick;
             this.executeAtTick = this.createdAtTick + delayedTicks;
         }
 
@@ -120,21 +93,17 @@ public final class FluidCollisionManager {
             }
         }
 
-        public boolean isStillTheExpectedBlock() {
-            BlockType blockType = this.world.getBlockType(this.x, this.y, this.z);
-            if(blockType != null) {
-                return this.expectedBlock.equals(SimplifiedBlock.ofType(blockType));
-            } else {
-                return false;
-            }
+        public boolean isStillTheExpectedBlock(World world) {
+            BlockType block = world.getBlockType(this.x, this.y, this.z);
+            return block != null && block.getId().equals(originalType.getId());
         }
 
     }
 
 
-    public static void addDelayedCollision(@Nonnull World world, int x, int y, int z, @Nonnull SimplifiedBlock expectedBlock, @Nullable BlockType resultType, int expectedFluidId, long delayedTicks, boolean showBreakAnimation) {
+    public static void addDelayedCollision(@Nonnull World world, int x, int y, int z, @Nonnull BlockType originalType, @Nullable BlockType resultType, int expectedFluidId, long delayedTicks, boolean showBreakAnimation) {
         String worldKey = worldKey(world);
-        PendingChange change = new PendingChange(world, x, y, z, delayedTicks, expectedBlock, resultType, expectedFluidId, showBreakAnimation);
+        PendingChange change = new PendingChange(x, y, z, world.getTick(), delayedTicks, originalType, resultType, expectedFluidId, showBreakAnimation);
 
         QUEUES.computeIfAbsent(worldKey, _ -> Collections.synchronizedList(new ArrayList<>())).add(change);
     }
@@ -142,13 +111,13 @@ public final class FluidCollisionManager {
     public static void tick(@Nonnull World world, long currentTick) {
         List<PendingChange> queue = QUEUES.get(worldKey(world));
         if (queue != null && !queue.isEmpty()) {
-            InteractiveFluidsPlugin.get().getLogger().atInfo().log("Queue Size: " + queue.size());
+            //InteractiveFluidsPlugin.get().getLogger().atInfo().log("Queue Size: " + queue.size());
             synchronized (queue) {
                 Iterator<PendingChange> it = queue.iterator();
                 while (it.hasNext()) {
                     PendingChange change = it.next();
 
-                    if(change.isStillTheExpectedBlock()) {
+                    if(change.isStillTheExpectedBlock(world)) {
                         if (change.canPlaceBlock(currentTick)) {
                             if (change.placeBlock(world)) {
                                 tickSurrounding(world, change.x, change.y, change.z);

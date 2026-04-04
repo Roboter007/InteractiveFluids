@@ -296,13 +296,12 @@ public class InteractiveFluidTicker extends FluidTicker {
             }
         }
 
-        //ToDo: fix laggs
         FluidCollisionManager.addDelayedCollision(
                 world,
                 blockX,
                 blockY,
                 blockZ,
-                FluidCollisionManager.SimplifiedBlock.ofType(expectedType),
+                expectedType,
                 resultBlock,
                 fluidId,
                 resultConfig.getBlockPlaceDelay(),
