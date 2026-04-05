@@ -6,8 +6,12 @@ import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.codec.codecs.map.MapCodec;
+import com.hypixel.hytale.codec.codecs.set.SetCodec;
+import com.hypixel.hytale.codec.validation.Validators;
 import com.hypixel.hytale.common.util.MapUtil;
+import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.math.util.HashUtil;
 import com.hypixel.hytale.math.vector.Vector2i;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.*;
@@ -21,18 +25,23 @@ import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BCConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BlockCollisionConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BCResultConfig;
+import de.Roboter007.interactiveFluids.ticker.collision.block.FluidBlockingBlockConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.fluid.FluidCollisionConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.manager.FluidCollisionManager;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowShapeConfig;
+import de.Roboter007.interactiveFluids.ticker.utils.IFOperators;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.lang.reflect.Field;
 import java.util.*;
 
 public class InteractiveFluidTicker extends FluidTicker {
@@ -50,6 +59,8 @@ public class InteractiveFluidTicker extends FluidTicker {
     @Nullable
     private transient Int2ObjectMap<FluidCollisionConfig> fluidCollisionMap = null;
 
+    private Map<String, FluidBlockingBlockConfigEntry> fluidBlockingBlocks = null;
+
     private FlowShapeConfig flowShapeConfig = null;
     private BlockCollisionConfig blockCollisionConfig = null;
 
@@ -65,6 +76,19 @@ public class InteractiveFluidTicker extends FluidTicker {
             this.blockCollisionConfig = new BlockCollisionConfig();
         }
         return blockCollisionConfig;
+    }
+
+    @Nullable
+    public Map<String, FluidBlockingBlockConfigEntry> getFluidBlockingBlocks() {
+        return fluidBlockingBlocks;
+    }
+
+    @NotNull
+    public Map<String, FluidBlockingBlockConfigEntry> fluidBlockingBlocks() {
+        if(fluidBlockingBlocks == null) {
+            this.fluidBlockingBlocks = Collections.emptyMap();
+        }
+        return fluidBlockingBlocks;
     }
 
     public static int[] shapeGenConfigDefault() {
@@ -401,9 +425,42 @@ public class InteractiveFluidTicker extends FluidTicker {
         }
     }
 
+    @Override
+    public boolean blocksFluidFrom(@NotNull BlockType blockType, int rotationIndex, int offsetX, int offsetZ, int filler) {
+        if(fluidBlockingBlocks != null) {
+            if (fluidBlockingBlocks.containsKey(IFOperators.ALL_BLOCKS)) {
+                FluidBlockingBlockConfigEntry entry = fluidBlockingBlocks.get(IFOperators.ALL_BLOCKS);
+                if(!entry.blocksFluid) {
+                    if(entry.keepVanillaBehavior) {
+                        return super.blocksFluidFrom(blockType, rotationIndex, offsetX, offsetZ, filler);
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return true;
+                }
+            } else if(fluidBlockingBlocks.containsKey(blockType.getId())) {
+                FluidBlockingBlockConfigEntry entry = fluidBlockingBlocks.get(blockType.getId());
+                if(!entry.blocksFluid) {
+                    if(entry.keepVanillaBehavior) {
+                        return super.blocksFluidFrom(blockType, rotationIndex, offsetX, offsetZ, filler);
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return true;
+                }
+            }
+        }
+        return super.blocksFluidFrom(blockType, rotationIndex, offsetX, offsetZ, filler);
+
+    }
+
+
 
     static {
         CODEC = BuilderCodec.builder(InteractiveFluidTicker.class, InteractiveFluidTicker::new, BASE_CODEC)
+                .appendInherited(new KeyedCodec<>("FluidBlockingBlocks",new MapCodec<>(FluidBlockingBlockConfigEntry.CODEC, HashMap::new)), (ticker, o) -> ticker.fluidBlockingBlocks = MapUtil.combineUnmodifiable(ticker.fluidBlockingBlocks(), o), (ticker) -> ticker.fluidBlockingBlocks, (ticker, parent) -> ticker.fluidBlockingBlocks = parent.fluidBlockingBlocks).add()
                 .appendInherited(new KeyedCodec<>("SpreadFluid", Codec.STRING), (ticker, o) -> ticker.spreadFluid = o, (ticker) -> ticker.spreadFluid, (ticker, parent) -> ticker.spreadFluid = parent.spreadFluid).addValidator(Fluid.VALIDATOR_CACHE.getValidator().late()).add()
                 .appendInherited(new KeyedCodec<>("FlowShape", FlowShapeConfig.CODEC), (ticker, o) -> ticker.flowShapeConfig = o, (ticker) -> ticker.flowShapeConfig, (ticker, parent) -> ticker.flowShapeConfig = parent.flowShapeConfig).documentation("Defines the interaction field of the fluid regarding their defined block collisions").add()
                 .appendInherited(new KeyedCodec<>("FluidCollisions", new MapCodec<>(FluidCollisionConfig.CODEC, HashMap::new)), (ticker, o) -> ticker.rawFluidCollisionMap = MapUtil.combineUnmodifiable(ticker.rawFluidCollisionMap, o), (ticker) -> ticker.rawFluidCollisionMap, (ticker, parent) -> ticker.rawFluidCollisionMap = parent.rawFluidCollisionMap).documentation("Defines what happens when this fluid tries to spread into another fluid").add()

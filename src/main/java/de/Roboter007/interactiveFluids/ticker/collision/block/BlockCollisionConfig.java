@@ -113,7 +113,7 @@ public class BlockCollisionConfig {
                 return new BCConfigEntry(condition, entry.getValue());
             }
 
-            if (blockState != null && requiredState.equals(blockState)) {
+            if (requiredState.equals(blockState)) {
                 return new BCConfigEntry(condition, entry.getValue());
             }
         }

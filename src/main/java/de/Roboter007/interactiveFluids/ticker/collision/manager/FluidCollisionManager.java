@@ -110,7 +110,6 @@ public final class FluidCollisionManager {
     public static void tick(@Nonnull World world, long currentTick) {
         List<PendingChange> queue = QUEUES.get(worldKey(world));
         if (queue != null && !queue.isEmpty()) {
-            //InteractiveFluidsPlugin.get().getLogger().atInfo().log("Queue Size: " + queue.size());
             synchronized (queue) {
                 Iterator<PendingChange> it = queue.iterator();
                 while (it.hasNext()) {
