@@ -1,4 +1,4 @@
-package de.Roboter007.interactiveFluids.ticker.collision.block;
+package de.Roboter007.interactiveFluids.ticker.fluidblocking;
 
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;

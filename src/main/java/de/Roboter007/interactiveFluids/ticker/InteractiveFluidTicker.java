@@ -6,12 +6,8 @@ import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.codec.codecs.map.MapCodec;
-import com.hypixel.hytale.codec.codecs.set.SetCodec;
-import com.hypixel.hytale.codec.validation.Validators;
 import com.hypixel.hytale.common.util.MapUtil;
-import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.math.util.ChunkUtil;
-import com.hypixel.hytale.math.util.HashUtil;
 import com.hypixel.hytale.math.vector.Vector2i;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.*;
@@ -25,11 +21,10 @@ import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
-import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BCConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BlockCollisionConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BCResultConfig;
-import de.Roboter007.interactiveFluids.ticker.collision.block.FluidBlockingBlockConfigEntry;
+import de.Roboter007.interactiveFluids.ticker.fluidblocking.FluidBlockingBlockConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.fluid.FluidCollisionConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.manager.FluidCollisionManager;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
@@ -41,7 +36,6 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.lang.reflect.Field;
 import java.util.*;
 
 public class InteractiveFluidTicker extends FluidTicker {
