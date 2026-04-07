@@ -32,6 +32,8 @@ import de.Roboter007.interactiveFluids.ticker.flowShape.FlowShapeConfig;
 import de.Roboter007.interactiveFluids.ticker.utils.IFOperators;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
@@ -51,7 +53,7 @@ public class InteractiveFluidTicker extends FluidTicker {
 
     private Map<String, FluidCollisionConfig> rawFluidCollisionMap = Collections.emptyMap();
     @Nullable
-    private transient Int2ObjectMap<FluidCollisionConfig> fluidCollisionMap = null;
+    private transient Object2ObjectMap<String, FluidCollisionConfig> fluidCollisionMap = null;
 
     private Map<String, FluidBlockingBlockConfigEntry> fluidBlockingBlocks = null;
 
@@ -168,8 +170,20 @@ public class InteractiveFluidTicker extends FluidTicker {
                                     int destFiller = otherBlockSection.getFiller(blockX, worldY, blockZ);
                                     if (!this.blocksFluidFrom(block, rotationIndex, x, z, destFiller)) {
                                         int otherFluidId = otherFluidSection.getFluidId(blockX, worldY, blockZ);
-                                        if (otherFluidId != 0 && otherFluidId != spreadFluidId) {
-                                            FluidCollisionConfig config = this.getFluidCollisionMap().get(otherFluidId);
+                                        Fluid otherFluid = otherFluidSection.getFluid(otherFluidId);
+                                        if (otherFluidId != 0 && otherFluid != null && otherFluidId != spreadFluidId) {
+                                            FluidCollisionConfig config;
+                                            if (this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
+                                                config = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
+                                            } else {
+                                                config = this.getFluidCollisionMap().get(otherFluidId);
+                                            }
+
+                                            if(!(otherFluid.getData() != null && otherFluid.getData().getParentKey() != null && otherFluid.getData().getParentKey() instanceof Fluid parentFluid && parentFluid.getId().equals(otherFluid.getId()))) {
+                                                config = null;
+                                            }
+
+
                                             if (config == null || executeCollision(world, accessor, otherFluidSection, otherBlockSection, config, blockX, worldY, blockZ)) {
                                                 continue;
                                             }
@@ -192,7 +206,18 @@ public class InteractiveFluidTicker extends FluidTicker {
 
                     return BlockTickStrategy.SLEEP;
                 } else {
-                    FluidCollisionConfig fluidCollisionConfig = this.getFluidCollisionMap().get(fluidBelowId);
+
+                    FluidCollisionConfig fluidCollisionConfig;
+                    if (this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
+                        fluidCollisionConfig = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
+                    } else {
+                        fluidCollisionConfig = this.getFluidCollisionMap().get(fluidBelowId);
+                    }
+
+                    if(fluidBelow != null && fluidBelow.getData() != null && fluidBelow.getData().getParentKey() != null && fluidBelow.getData().getParentKey() instanceof Fluid parentFluid && parentFluid.getId().equals(fluidBelow.getId())) {
+                        fluidCollisionConfig = null;
+                    }
+
                     if (fluidCollisionConfig != null && !executeCollision(world, accessor, fluidSectionBelow, blockSectionBelow, fluidCollisionConfig, worldX, worldY - 1, worldZ)) {
                         return BlockTickStrategy.CONTINUE;
                     } else {
@@ -257,7 +282,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                     if (block != null && block.getDrawType() != DrawType.Cube) {
                         BlockBoundingBoxes blockBoundingBoxes = BlockBoundingBoxes.getAssetMap().getAsset(block.getHitboxType());
 
-                        //ToDo: possible fix for getting hitbox height or something?
+                        //ToDo: possible better solution for getting hitbox height or something?
                         //BlockBoundingBoxes boxes = block.getData().getContainerKey((Class<? extends com.hypixel.hytale.assetstore.JsonAsset<BlockBoundingBoxes>>) BlockBoundingBoxes.class);
                         if (blockBoundingBoxes != null) {
                             // maxSearchHeight = 30 -> hardcoded due to missing possibility for getting the hitbox height
@@ -367,16 +392,11 @@ public class InteractiveFluidTicker extends FluidTicker {
 
 
     @Nonnull
-    public Int2ObjectMap<FluidCollisionConfig> getFluidCollisionMap() {
+    public Object2ObjectMap<String, FluidCollisionConfig> getFluidCollisionMap() {
         if (this.fluidCollisionMap == null) {
-            Int2ObjectOpenHashMap<FluidCollisionConfig> collisionMap = new Int2ObjectOpenHashMap<>(this.rawFluidCollisionMap.size());
+            Object2ObjectMap<String, FluidCollisionConfig> collisionMap = new Object2ObjectOpenHashMap<>(this.rawFluidCollisionMap.size());
 
-            for(Map.Entry<String, FluidCollisionConfig> entry : this.rawFluidCollisionMap.entrySet()) {
-                int index = FLUID_MAP.getIndex(entry.getKey());
-                if (index != Integer.MIN_VALUE) {
-                    collisionMap.put(index, entry.getValue());
-                }
-            }
+            collisionMap.putAll(this.rawFluidCollisionMap);
 
             this.fluidCollisionMap = collisionMap;
         }

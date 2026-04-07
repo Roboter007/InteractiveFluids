@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+//ToDo: boolean value that defines if a block gets turned back in its original block when the fluid has demoted & save them in a list or something like that
 public class BlockCollisionConfig {
     public static final BuilderCodec<BlockCollisionConfig> CODEC;
 

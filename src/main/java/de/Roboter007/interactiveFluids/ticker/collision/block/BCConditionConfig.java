@@ -10,16 +10,6 @@ public class BCConditionConfig {
 
     protected String block;
     protected String blockState = "";
-    protected int blockToPlaceIndex = Integer.MIN_VALUE;
-
-    public int getBlockToPlaceIndex() {
-        if (this.blockToPlaceIndex == Integer.MIN_VALUE && this.block != null) {
-            this.blockToPlaceIndex = BlockType.getBlockIdOrUnknown(this.block, "Unknown block type %s", this.block);
-        }
-
-        return this.blockToPlaceIndex;
-    }
-
 
 
     public String getBlock() {
