@@ -21,6 +21,7 @@ import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
+import de.Roboter007.interactiveFluids.InteractiveFluidsPlugin;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BCConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BlockCollisionConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BCResultConfig;
@@ -171,15 +172,18 @@ public class InteractiveFluidTicker extends FluidTicker {
                                     if (!this.blocksFluidFrom(block, rotationIndex, x, z, destFiller)) {
                                         int otherFluidId = otherFluidSection.getFluidId(blockX, worldY, blockZ);
                                         Fluid otherFluid = otherFluidSection.getFluid(otherFluidId);
-                                        if (otherFluidId != 0 && otherFluid != null && otherFluidId != spreadFluidId) {
+                                        if (otherFluidId != 0 && otherFluidId != spreadFluidId) {
                                             FluidCollisionConfig config;
-                                            if (this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
-                                                config = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
-                                            } else {
-                                                config = this.getFluidCollisionMap().get(otherFluidId);
-                                            }
+                                            if(this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
+                                                if(otherFluid != null && otherFluid.getId().equals("Empty")) {
+                                                    config = null;
+                                                } else {
+                                                    config = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
+                                                }
 
-                                            if(!(otherFluid.getData() != null && otherFluid.getData().getParentKey() != null && otherFluid.getData().getParentKey() instanceof Fluid parentFluid && parentFluid.getId().equals(otherFluid.getId()))) {
+                                            } else if(otherFluid != null) {
+                                                config = this.getFluidCollisionMap().get(otherFluid.getId());
+                                            } else {
                                                 config = null;
                                             }
 
@@ -210,13 +214,12 @@ public class InteractiveFluidTicker extends FluidTicker {
                     FluidCollisionConfig fluidCollisionConfig;
                     if (this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
                         fluidCollisionConfig = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
+                    } else if(fluidBelow != null) {
+                        fluidCollisionConfig = this.getFluidCollisionMap().get(fluidBelow.getId());
                     } else {
-                        fluidCollisionConfig = this.getFluidCollisionMap().get(fluidBelowId);
-                    }
-
-                    if(fluidBelow != null && fluidBelow.getData() != null && fluidBelow.getData().getParentKey() != null && fluidBelow.getData().getParentKey() instanceof Fluid parentFluid && parentFluid.getId().equals(fluidBelow.getId())) {
                         fluidCollisionConfig = null;
                     }
+
 
                     if (fluidCollisionConfig != null && !executeCollision(world, accessor, fluidSectionBelow, blockSectionBelow, fluidCollisionConfig, worldX, worldY - 1, worldZ)) {
                         return BlockTickStrategy.CONTINUE;
