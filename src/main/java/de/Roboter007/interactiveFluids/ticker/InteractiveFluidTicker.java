@@ -214,8 +214,6 @@ public class InteractiveFluidTicker extends FluidTicker {
                         }
                     }
                 }
-
-                return BlockTickStrategy.SLEEP;
             } else {
 
                 FluidCollisionConfig fluidCollisionConfig;
@@ -238,13 +236,11 @@ public class InteractiveFluidTicker extends FluidTicker {
                             blockSectionBelow.setTicking(worldX, worldY - 1, worldZ, true);
                         }
                     }
-
-                    return BlockTickStrategy.SLEEP;
                 }
             }
-        } else {
-            return BlockTickStrategy.SLEEP;
         }
+        return BlockTickStrategy.SLEEP;
+
     }
 
 
