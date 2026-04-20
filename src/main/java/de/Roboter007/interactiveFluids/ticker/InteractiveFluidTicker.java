@@ -21,7 +21,6 @@ import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
-import de.Roboter007.interactiveFluids.InteractiveFluidsPlugin;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BCConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BlockCollisionConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BCResultConfig;
@@ -31,8 +30,6 @@ import de.Roboter007.interactiveFluids.ticker.collision.manager.FluidCollisionMa
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowShapeConfig;
 import de.Roboter007.interactiveFluids.ticker.utils.IFOperators;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.jetbrains.annotations.NotNull;
@@ -99,19 +96,8 @@ public class InteractiveFluidTicker extends FluidTicker {
 
     @Nonnull
     @Override
-    protected BlockTickStrategy spread(
-            @Nonnull World world,
-            long tick,
-            @Nonnull Accessor accessor,
-            @Nonnull FluidSection fluidSection,
-            BlockSection blockSection,
-            @Nonnull Fluid fluid,
-            int fluidId,
-            byte fluidLevel,
-            int worldX,
-            int worldY,
-            int worldZ
-    ) {
+    protected BlockTickStrategy spread(@Nonnull World world, long tick, @Nonnull Accessor accessor, @Nonnull FluidSection fluidSection, BlockSection blockSection,
+                                       @Nonnull Fluid fluid, int fluidId, byte fluidLevel, int worldX, int worldY, int worldZ) {
         if (worldY == 0) {
             return BlockTickStrategy.SLEEP;
         } else {
@@ -165,10 +151,12 @@ public class InteractiveFluidTicker extends FluidTicker {
                             int z = offset.y;
                             int blockX = worldX + x;
                             int blockZ = worldZ + z;
-                            if (!this.blocksFluidFrom(sourceBlock, sourceRotationIndex, -x, -z, sourceFiller)) {
+
+                            if (sourceBlock != null && !this.blocksFluidFrom(sourceBlock, sourceRotationIndex, -x, -z, sourceFiller)) {
                                 boolean isDifferentSection = !ChunkUtil.isSameChunkSection(worldX, worldY, worldZ, blockX, worldY, blockZ);
                                 FluidSection otherFluidSection = isDifferentSection ? accessor.getFluidSectionByBlock(blockX, worldY, blockZ) : fluidSection;
                                 BlockSection otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, worldY, blockZ) : blockSection;
+
                                 if (otherFluidSection == null || otherBlockSection == null) {
                                     return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
                                 }
@@ -176,7 +164,8 @@ public class InteractiveFluidTicker extends FluidTicker {
                                 BlockType block = BLOCK_MAP.getAsset(otherBlockSection.get(blockX, worldY, blockZ));
                                 int rotationIndex = otherBlockSection.getRotationIndex(blockX, worldY, blockZ);
                                 int destFiller = otherBlockSection.getFiller(blockX, worldY, blockZ);
-                                if (!this.blocksFluidFrom(block, rotationIndex, x, z, destFiller)) {
+
+                                if (block != null && !this.blocksFluidFrom(block, rotationIndex, x, z, destFiller)) {
                                     int otherFluidId = otherFluidSection.getFluidId(blockX, worldY, blockZ);
                                     Fluid otherFluid = otherFluidSection.getFluid(otherFluidId);
                                     if (otherFluidId != 0 && otherFluidId != spreadFluidId) {
@@ -215,7 +204,6 @@ public class InteractiveFluidTicker extends FluidTicker {
                     }
                 }
             } else {
-
                 FluidCollisionConfig fluidCollisionConfig;
                 if (this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
                     fluidCollisionConfig = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
@@ -230,7 +218,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                     return BlockTickStrategy.CONTINUE;
                 } else {
                     byte fluidLevelBelow = fluidSectionBelow.getFluidLevel(worldX, worldY - 1, worldZ);
-                    if (fluidBelowId == 0 && !isSolid(blockBelow) || fluidBelow != null && fluidBelowId == spreadFluidId && fluidLevelBelow < fluidBelow.getMaxFluidLevel()) {
+                    if (blockBelow != null && fluidBelowId == 0 && !isSolid(blockBelow) || fluidBelow != null && fluidBelowId == spreadFluidId && fluidLevelBelow < fluidBelow.getMaxFluidLevel()) {
                         boolean changed = spreadFluid != null && fluidSectionBelow.setFluid(worldX, worldY - 1, worldZ, spreadFluidId, (byte)spreadFluid.getMaxFluidLevel());
                         if (changed) {
                             blockSectionBelow.setTicking(worldX, worldY - 1, worldZ, true);
@@ -344,17 +332,7 @@ public class InteractiveFluidTicker extends FluidTicker {
             }
         }
 
-        FluidCollisionManager.addDelayedCollision(
-                world,
-                blockX,
-                blockY,
-                blockZ,
-                expectedType,
-                resultBlock,
-                fluidId,
-                resultConfig.getBlockPlaceDelay(),
-                resultConfig.useBreakAnimation()
-        );
+        FluidCollisionManager.addDelayedCollision(world, blockX, blockY, blockZ, expectedType, resultBlock, fluidId, resultConfig.getBlockPlaceDelay(), resultConfig.useBreakAnimation());
     }
 
 
