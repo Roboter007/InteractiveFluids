@@ -118,129 +118,130 @@ public class InteractiveFluidTicker extends FluidTicker {
             BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Spread, fluidId, BLOCK_MAP, world, worldX, worldY, worldZ, accessor, blockSection);
             if(blockTickStrategy != null) {
                 return blockTickStrategy;
+            } else {
+                return handleFlowingFluid(world, accessor, fluidSection, blockSection, fluid, fluidId, fluidLevel, worldX, worldY, worldZ);
             }
+        }
+    }
 
-            boolean isDifferentSectionBelow = fluidSection.getY() != ChunkUtil.chunkCoordinate(worldY - 1);
-            FluidSection fluidSectionBelow = isDifferentSectionBelow ? accessor.getFluidSectionByBlock(worldX, worldY - 1, worldZ) : fluidSection;
-            BlockSection blockSectionBelow = isDifferentSectionBelow ? accessor.getBlockSectionByBlock(worldX, worldY - 1, worldZ) : blockSection;
-            if (fluidSectionBelow != null && blockSectionBelow != null) {
-                int fluidBelowId = fluidSectionBelow.getFluidId(worldX, worldY - 1, worldZ);
-                Fluid fluidBelow = FLUID_MAP.getAsset(fluidBelowId);
-                byte fluidLevelBelow = fluidSectionBelow.getFluidLevel(worldX, worldY - 1, worldZ);
-                int spreadFluidId = this.getSpreadFluidId(fluidId);
-                int blockIdBelow = blockSectionBelow.get(worldX, worldY - 1, worldZ);
-                BlockType blockBelow = BLOCK_MAP.getAsset(blockIdBelow);
+    public BlockTickStrategy handleFlowingFluid(World world, Accessor accessor, FluidSection fluidSection, BlockSection blockSection, Fluid fluid, int fluidId, byte fluidLevel, int worldX, int worldY, int worldZ) {
+        boolean isDifferentSectionBelow = fluidSection.getY() != ChunkUtil.chunkCoordinate(worldY - 1);
+        FluidSection fluidSectionBelow = isDifferentSectionBelow ? accessor.getFluidSectionByBlock(worldX, worldY - 1, worldZ) : fluidSection;
+        BlockSection blockSectionBelow = isDifferentSectionBelow ? accessor.getBlockSectionByBlock(worldX, worldY - 1, worldZ) : blockSection;
+        if (fluidSectionBelow != null && blockSectionBelow != null) {
+            int fluidBelowId = fluidSectionBelow.getFluidId(worldX, worldY - 1, worldZ);
+            int blockIdBelow = blockSectionBelow.get(worldX, worldY - 1, worldZ);
+            int spreadFluidId = this.getSpreadFluidId(fluidId);
 
-                if (isSolid(blockBelow) || fluidBelowId != 0 && fluidBelowId != spreadFluidId && fluidBelowId == fluidId) {
-                    if (fluidBelowId == 0 || fluidBelowId != spreadFluidId) {
-                        if (fluidLevel == 1 && fluid.getMaxFluidLevel() != 1) {
-                            return BlockTickStrategy.SLEEP;
-                        }
+            Fluid fluidBelow = FLUID_MAP.getAsset(fluidBelowId);
+            Fluid spreadFluid = FLUID_MAP.getAsset(spreadFluidId);
+            BlockType blockBelow = BLOCK_MAP.getAsset(blockIdBelow);
 
-                        int offsets = this.getSpreadOffsets(BLOCK_MAP, accessor, fluidSection, blockSection, worldX, worldY, worldZ, ORTO_OFFSETS, fluidId, 5);
-                        if (offsets == 2147483646) {
-                            return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
-                        }
 
-                        int childFillLevel = fluidLevel - 1;
-                        if (spreadFluidId != fluidId) {
-                            childFillLevel = FLUID_MAP.getAsset(spreadFluidId).getMaxFluidLevel() - 1;
-                        }
+            if (blockBelow != null && isSolid(blockBelow) || fluidBelowId != 0 && fluidBelowId != spreadFluidId && fluidBelowId == fluidId) {
+                if (fluidBelowId == 0 || fluidBelowId != spreadFluidId) {
+                    if (fluidLevel == 1 && fluid.getMaxFluidLevel() != 1) {
+                        return BlockTickStrategy.SLEEP;
+                    }
 
-                        BlockType sourceBlock = BLOCK_MAP.getAsset(blockSection.get(worldX, worldY, worldZ));
-                        int sourceRotationIndex = blockSection.getRotationIndex(worldX, worldY, worldZ);
-                        int sourceFiller = blockSection.getFiller(worldX, worldY, worldZ);
+                    int offsets = this.getSpreadOffsets(BLOCK_MAP, accessor, fluidSection, blockSection, worldX, worldY, worldZ, ORTO_OFFSETS, fluidId, 5);
+                    if (offsets == 2147483646) {
+                        return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
+                    }
 
-                        for (int i = 0; i < ORTO_OFFSETS.length; i++) {
-                            if (offsets == 0 || (offsets & 1 << i) != 0) {
-                                Vector2i offset = ORTO_OFFSETS[i];
-                                int x = offset.x;
-                                int z = offset.y;
-                                int blockX = worldX + x;
-                                int blockZ = worldZ + z;
-                                if (!this.blocksFluidFrom(sourceBlock, sourceRotationIndex, -x, -z, sourceFiller)) {
-                                    boolean isDifferentSection = !ChunkUtil.isSameChunkSection(worldX, worldY, worldZ, blockX, worldY, blockZ);
-                                    FluidSection otherFluidSection = isDifferentSection ? accessor.getFluidSectionByBlock(blockX, worldY, blockZ) : fluidSection;
-                                    BlockSection otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, worldY, blockZ) : blockSection;
-                                    if (otherFluidSection == null || otherBlockSection == null) {
-                                        return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
-                                    }
+                    int childFillLevel = fluidLevel - 1;
+                    if (spreadFluid != null && spreadFluidId != fluidId) {
+                        childFillLevel = spreadFluid.getMaxFluidLevel() - 1;
+                    }
 
-                                    BlockType block = BLOCK_MAP.getAsset(otherBlockSection.get(blockX, worldY, blockZ));
-                                    int rotationIndex = otherBlockSection.getRotationIndex(blockX, worldY, blockZ);
-                                    int destFiller = otherBlockSection.getFiller(blockX, worldY, blockZ);
-                                    if (!this.blocksFluidFrom(block, rotationIndex, x, z, destFiller)) {
-                                        int otherFluidId = otherFluidSection.getFluidId(blockX, worldY, blockZ);
-                                        Fluid otherFluid = otherFluidSection.getFluid(otherFluidId);
-                                        if (otherFluidId != 0 && otherFluidId != spreadFluidId) {
-                                            FluidCollisionConfig config;
-                                            if(this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
-                                                if(otherFluid != null && otherFluid.getId().equals("Empty")) {
-                                                    config = null;
-                                                } else {
-                                                    config = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
-                                                }
+                    BlockType sourceBlock = BLOCK_MAP.getAsset(blockSection.get(worldX, worldY, worldZ));
+                    int sourceRotationIndex = blockSection.getRotationIndex(worldX, worldY, worldZ);
+                    int sourceFiller = blockSection.getFiller(worldX, worldY, worldZ);
 
-                                            } else if(otherFluid != null) {
-                                                config = this.getFluidCollisionMap().get(otherFluid.getId());
-                                            } else {
+                    for (int i = 0; i < ORTO_OFFSETS.length; i++) {
+                        if (offsets == 0 || (offsets & 1 << i) != 0) {
+                            Vector2i offset = ORTO_OFFSETS[i];
+                            int x = offset.x;
+                            int z = offset.y;
+                            int blockX = worldX + x;
+                            int blockZ = worldZ + z;
+                            if (!this.blocksFluidFrom(sourceBlock, sourceRotationIndex, -x, -z, sourceFiller)) {
+                                boolean isDifferentSection = !ChunkUtil.isSameChunkSection(worldX, worldY, worldZ, blockX, worldY, blockZ);
+                                FluidSection otherFluidSection = isDifferentSection ? accessor.getFluidSectionByBlock(blockX, worldY, blockZ) : fluidSection;
+                                BlockSection otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, worldY, blockZ) : blockSection;
+                                if (otherFluidSection == null || otherBlockSection == null) {
+                                    return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
+                                }
+
+                                BlockType block = BLOCK_MAP.getAsset(otherBlockSection.get(blockX, worldY, blockZ));
+                                int rotationIndex = otherBlockSection.getRotationIndex(blockX, worldY, blockZ);
+                                int destFiller = otherBlockSection.getFiller(blockX, worldY, blockZ);
+                                if (!this.blocksFluidFrom(block, rotationIndex, x, z, destFiller)) {
+                                    int otherFluidId = otherFluidSection.getFluidId(blockX, worldY, blockZ);
+                                    Fluid otherFluid = otherFluidSection.getFluid(otherFluidId);
+                                    if (otherFluidId != 0 && otherFluidId != spreadFluidId) {
+                                        FluidCollisionConfig config;
+                                        if(this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
+                                            if(otherFluid != null && otherFluid.getId().equals("Empty")) {
                                                 config = null;
+                                            } else {
+                                                config = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
                                             }
 
-
-                                            if (config == null || executeCollision(world, accessor, otherFluidSection, otherBlockSection, config, blockX, worldY, blockZ)) {
-                                                continue;
-                                            }
+                                        } else if(otherFluid != null) {
+                                            config = this.getFluidCollisionMap().get(otherFluid.getId());
+                                        } else {
+                                            config = null;
                                         }
 
-                                        byte fillLevel = otherFluidSection.getFluidLevel(blockX, worldY, blockZ);
-                                        if (otherFluidId != spreadFluidId || fillLevel < childFillLevel) {
-                                            if (childFillLevel == 0) {
-                                                otherFluidSection.setFluid(blockX, worldY, blockZ, 0, (byte)0);
-                                            } else {
-                                                otherFluidSection.setFluid(blockX, worldY, blockZ, spreadFluidId, (byte)childFillLevel);
-                                                otherBlockSection.setTicking(blockX, worldY, blockZ, true);
-                                            }
+
+                                        if (config == null || executeCollision(world, accessor, otherFluidSection, otherBlockSection, config, blockX, worldY, blockZ)) {
+                                            continue;
+                                        }
+                                    }
+
+                                    byte fillLevel = otherFluidSection.getFluidLevel(blockX, worldY, blockZ);
+                                    if (otherFluidId != spreadFluidId || fillLevel < childFillLevel) {
+                                        if (childFillLevel == 0) {
+                                            otherFluidSection.setFluid(blockX, worldY, blockZ, 0, (byte)0);
+                                        } else {
+                                            otherFluidSection.setFluid(blockX, worldY, blockZ, spreadFluidId, (byte)childFillLevel);
+                                            otherBlockSection.setTicking(blockX, worldY, blockZ, true);
                                         }
                                     }
                                 }
                             }
                         }
                     }
-
-                    return BlockTickStrategy.SLEEP;
-                } else {
-
-                    FluidCollisionConfig fluidCollisionConfig;
-                    if (this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
-                        fluidCollisionConfig = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
-                    } else if(fluidBelow != null) {
-                        fluidCollisionConfig = this.getFluidCollisionMap().get(fluidBelow.getId());
-                    } else {
-                        fluidCollisionConfig = null;
-                    }
-
-
-                    if (fluidCollisionConfig != null && !executeCollision(world, accessor, fluidSectionBelow, blockSectionBelow, fluidCollisionConfig, worldX, worldY - 1, worldZ)) {
-                        return BlockTickStrategy.CONTINUE;
-                    } else {
-                        if (fluidBelowId == 0 && !isSolid(blockBelow) || fluidBelowId == spreadFluidId && fluidLevelBelow < fluidBelow.getMaxFluidLevel()) {
-                            int spreadId = this.getSpreadFluidId(fluidId);
-                            Fluid spreadFluid = FLUID_MAP.getAsset(spreadId);
-                            boolean changed = fluidSectionBelow.setFluid(worldX, worldY - 1, worldZ, spreadId, (byte)spreadFluid.getMaxFluidLevel());
-                            if (changed) {
-                                blockSectionBelow.setTicking(worldX, worldY - 1, worldZ, true);
-                            }
-                        }
-
-                        return BlockTickStrategy.SLEEP;
-                    }
                 }
             } else {
-                return BlockTickStrategy.SLEEP;
+
+                FluidCollisionConfig fluidCollisionConfig;
+                if (this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
+                    fluidCollisionConfig = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
+                } else if(fluidBelow != null) {
+                    fluidCollisionConfig = this.getFluidCollisionMap().get(fluidBelow.getId());
+                } else {
+                    fluidCollisionConfig = null;
+                }
+
+
+                if (fluidCollisionConfig != null && !executeCollision(world, accessor, fluidSectionBelow, blockSectionBelow, fluidCollisionConfig, worldX, worldY - 1, worldZ)) {
+                    return BlockTickStrategy.CONTINUE;
+                } else {
+                    byte fluidLevelBelow = fluidSectionBelow.getFluidLevel(worldX, worldY - 1, worldZ);
+                    if (fluidBelowId == 0 && !isSolid(blockBelow) || fluidBelow != null && fluidBelowId == spreadFluidId && fluidLevelBelow < fluidBelow.getMaxFluidLevel()) {
+                        boolean changed = spreadFluid != null && fluidSectionBelow.setFluid(worldX, worldY - 1, worldZ, spreadFluidId, (byte)spreadFluid.getMaxFluidLevel());
+                        if (changed) {
+                            blockSectionBelow.setTicking(worldX, worldY - 1, worldZ, true);
+                        }
+                    }
+                }
             }
         }
+        return BlockTickStrategy.SLEEP;
     }
+
 
     @Nullable
     public BlockTickStrategy checkNearbyBlocks(FlowPhase flowPhase, int fluidId, BlockTypeAssetMap<String, BlockType> blockMap, World world, int worldX, int worldY, int worldZ, Accessor accessor, BlockSection blockSection) {
