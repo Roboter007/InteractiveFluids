@@ -1,213 +1,147 @@
 package de.Roboter007.interactiveFluids.ticker.collision.manager;
 
-import com.hypixel.hytale.component.ComponentType;
-import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
-import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import de.Roboter007.interactiveFluids.InteractiveFluidsPlugin;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Iterator;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class FluidCollisionManager {
 
-    private FluidCollisionManager() {}
+    private static final ConcurrentHashMap<String, List<PendingChange>> QUEUES = new ConcurrentHashMap<>();
 
-    public static void addDelayedCollision(
-            @Nonnull World world,
-            int x, int y, int z,
-            @Nonnull BlockType originalType,
-            @Nullable BlockType resultType,
-            int expectedFluidId,
-            long delayedTicks,
-            boolean showBreakAnimation,
-            boolean revertBlock
-    ) {
-        world.execute(() -> {
-            PendingChangeChunk changeChunk = getOrCreateChangeChunk(world, x, z);
-            if (changeChunk == null) return;
+    private static final class PendingChange {
+        private final int x;
+        private final int y;
+        private final int z;
+        private final BlockType originalType;
+        @Nullable
+        private final BlockType resultType;
+        private final int expectedFluidId;
 
-            int idx = ChunkUtil.indexBlockInColumn(x, y, z);
+        private final boolean showBreakAnimation;
+        private final long delayedTicks;
 
-            if (changeChunk.contains(idx)) return;
+        private final long createdAtTick;
+        private final long executeAtTick;
 
-            PendingChange change = new PendingChange(
-                    x, y, z,
-                    world.getTick(), delayedTicks,
-                    originalType, resultType,
-                    expectedFluidId, showBreakAnimation,
-                    revertBlock
-            );
-            changeChunk.put(change);
-        });
+        private float lastSentHealth = 1.0f;
+
+        private PendingChange(int x, int y, int z, long createdAtTick, long delayedTicks, BlockType originalType, @Nullable BlockType resultType, int expectedFluidId, boolean showBreakAnimation) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.delayedTicks = delayedTicks;
+            this.originalType = originalType;
+            this.resultType = resultType;
+            this.expectedFluidId = expectedFluidId;
+            this.showBreakAnimation = showBreakAnimation;
+
+            this.createdAtTick = createdAtTick;
+            this.executeAtTick = this.createdAtTick + delayedTicks;
+        }
+
+        private float progress(long currentTick) {
+            long elapsed = Math.max(0L, currentTick - this.createdAtTick);
+            return (float) elapsed / this.delayedTicks;
+        }
+
+        private boolean canPlaceBlock(long currentTick) {
+            return currentTick >= this.executeAtTick;
+        }
+
+        private void updateBreakAnimation(@Nonnull World world, long currentTick) {
+            float health = 1.0F - progress(currentTick);
+            float delta = health - this.lastSentHealth;
+            if (!(Math.abs(delta) < 0.01f)) {
+                world.getNotificationHandler().updateBlockDamage(this.x, this.y, this.z, health, delta);
+                this.lastSentHealth = health;
+            }
+        }
+
+        private void clearBreakAnimation(@Nonnull World world) {
+            if (this.lastSentHealth < 0.999f) {
+                world.getNotificationHandler().updateBlockDamage(this.x, this.y, this.z, 1.0f, 0.0f);
+            }
+            this.lastSentHealth = 1.0f;
+        }
+
+        public boolean placeBlock(@Nonnull World world) {
+            long chunkIndex = ChunkUtil.indexChunkFromBlock(this.x, this.z);
+            WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
+
+            if (chunk != null) {
+                if (this.resultType != null) {
+                    int resultId = BlockType.getAssetMap().getIndex(this.resultType.getId());
+
+                    int rotation = world.getBlockRotationIndex(this.x, this.y, this.z);
+                    this.clearBreakAnimation(world);
+                    return chunk.setBlock(this.x, this.y, this.z, resultId, this.resultType, rotation, 0, 0);
+                } else {
+                    chunk.setBlock(this.x, this.y, this.z, 0);
+                    this.clearBreakAnimation(world);
+                }
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        public boolean isStillTheExpectedBlock(World world) {
+            BlockType block = world.getBlockType(this.x, this.y, this.z);
+            return block != null && block.getId().equals(originalType.getId());
+        }
+
     }
 
-    public static void addDelayedRevert(
-            @Nonnull World world,
-            int x, int y, int z,
-            @Nonnull BlockType expectedCurrentBlock,
-            int expectedFluidId,
-            long delayedTicks,
-            boolean showBreakAnimation
-    ) {
-        world.execute(() -> {
-            PendingChangeChunk changeChunk = getChangeChunk(world, x, z);
-            if (changeChunk == null) return;
 
-            int idx = ChunkUtil.indexBlockInColumn(x, y, z);
-            if (changeChunk.contains(idx)) return;
+    public static void addDelayedCollision(@Nonnull World world, int x, int y, int z, @Nonnull BlockType originalType, @Nullable BlockType resultType, int expectedFluidId, long delayedTicks, boolean showBreakAnimation) {
+        String worldKey = worldKey(world);
+        PendingChange change = new PendingChange(x, y, z, world.getTick(), delayedTicks, originalType, resultType, expectedFluidId, showBreakAnimation);
 
-            String originalTypeKey = changeChunk.getAndRemoveRevert(idx);
-            if (originalTypeKey == null) return;
-
-            BlockType currentBlock = world.getBlockType(x, y, z);
-            if (currentBlock == null || !currentBlock.getId().equals(expectedCurrentBlock.getId())) {
-                return;
-            }
-
-            int originalId = BlockType.getAssetMap().getIndex(originalTypeKey);
-            BlockType originalType = BlockType.getAssetMap().getAsset(originalId);
-            if (originalType == null) return;
-
-            PendingChange revertChange = new PendingChange(
-                    x, y, z,
-                    world.getTick(), delayedTicks,
-                    currentBlock,
-                    originalType,
-                    expectedFluidId,
-                    showBreakAnimation,
-                    false
-            );
-            changeChunk.put(revertChange);
-        });
+        QUEUES.computeIfAbsent(worldKey, _ -> Collections.synchronizedList(new ArrayList<>())).add(change);
     }
 
     public static void tick(@Nonnull World world, long currentTick) {
-        ComponentType<ChunkStore, PendingChangeChunk> componentType = getComponentType();
-        if (componentType == null) return;
-
-        ChunkStore chunkStore = world.getChunkStore();
-        if (chunkStore.getStore().isShutdown()) return;
-
-        chunkStore.getStore().forEachChunk(componentType, (archetypeChunk, commandBuffer) -> {
-            for (int i = 0; i < archetypeChunk.size(); i++) {
-                PendingChangeChunk changeChunk = archetypeChunk.getComponent(i, componentType);
-                if (changeChunk == null || changeChunk.size() == 0) continue;
-
-                Int2ObjectMap<PendingChange> map = changeChunk.rawMap();
-                Iterator<PendingChange> it = map.values().iterator();
-
+        List<PendingChange> queue = QUEUES.get(worldKey(world));
+        if (queue != null && !queue.isEmpty()) {
+            synchronized (queue) {
+                Iterator<PendingChange> it = queue.iterator();
                 while (it.hasNext()) {
                     PendingChange change = it.next();
 
-                    if (change.createdAtTick > currentTick) {
-                        change.clearBreakAnimation(world);
-                        it.remove();
-                        continue;
-                    }
-
-                    if (!change.isStillTheExpectedBlock(world)) {
-                        change.clearBreakAnimation(world);
-                        it.remove();
-                        continue;
-                    }
-
-                    if (change.canPlaceBlock(currentTick)) {
-                        if (change.placeBlock(world)) {
-                            if (change.revertBlock) {
-                                changeChunk.putRevert(change.blockInColumnIdx, change.originalTypeKey);
+                    if(change.isStillTheExpectedBlock(world)) {
+                        if (change.canPlaceBlock(currentTick)) {
+                            if (change.placeBlock(world)) {
+                                tickSurrounding(world, change.x, change.y, change.z);
                             }
-                            tickSurrounding(world, change.x, change.y, change.z);
+                            it.remove();
+                        } else if (change.showBreakAnimation) {
+                            change.updateBreakAnimation(world, currentTick);
                         }
+                    } else {
                         it.remove();
-                    } else if (change.showBreakAnimation) {
-                        change.updateBreakAnimation(world, currentTick);
                     }
                 }
             }
-        });
-    }
-
-    public static boolean hasPendingChange(@Nonnull World world, int x, int y, int z) {
-        PendingChangeChunk changeChunk = getChangeChunk(world, x, z);
-        if (changeChunk == null) return false;
-        return changeChunk.contains(ChunkUtil.indexBlockInColumn(x, y, z));
-    }
-
-    @Nullable
-    public static PendingChange getPendingChange(@Nonnull World world, int x, int y, int z) {
-        PendingChangeChunk changeChunk = getChangeChunk(world, x, z);
-        if (changeChunk == null) return null;
-        return changeChunk.get(ChunkUtil.indexBlockInColumn(x, y, z));
-    }
-
-    public static boolean hasRevertMarker(@Nonnull World world, int x, int y, int z) {
-        PendingChangeChunk changeChunk = getChangeChunk(world, x, z);
-        if (changeChunk == null) return false;
-        return changeChunk.hasRevert(ChunkUtil.indexBlockInColumn(x, y, z));
-    }
-
-    public static void cancelPendingChange(@Nonnull World world, int x, int y, int z) {
-        PendingChangeChunk changeChunk = getChangeChunk(world, x, z);
-        if (changeChunk == null) return;
-
-        int idx = ChunkUtil.indexBlockInColumn(x, y, z);
-        PendingChange change = changeChunk.remove(idx);
-        if (change != null) {
-            change.clearBreakAnimation(world);
         }
     }
 
     public static void clear(@Nonnull World world) {
-        ComponentType<ChunkStore, PendingChangeChunk> componentType = getComponentType();
-        if (componentType == null) return;
-
-        ChunkStore chunkStore = world.getChunkStore();
-        if (chunkStore.getStore().isShutdown()) return;
-
-        chunkStore.getStore().forEachChunk(componentType, (archetypeChunk, commandBuffer) -> {
-            for (int i = 0; i < archetypeChunk.size(); i++) {
-                PendingChangeChunk changeChunk = archetypeChunk.getComponent(i, componentType);
-                if (changeChunk != null) changeChunk.clear();
-            }
-        });
+        QUEUES.remove(worldKey(world));
     }
 
-    @Nullable
-    static PendingChangeChunk getChangeChunk(@Nonnull World world, int worldX, int worldZ) {
-        ComponentType<ChunkStore, PendingChangeChunk> componentType = getComponentType();
-        if (componentType == null) return null;
 
-        ChunkStore chunkStore = world.getChunkStore();
-        long chunkIndex = ChunkUtil.indexChunkFromBlock(worldX, worldZ);
-        Ref<ChunkStore> chunkRef = chunkStore.getChunkReference(chunkIndex);
-        if (chunkRef == null || !chunkRef.isValid()) return null;
-
-        return chunkStore.getStore().getComponent(chunkRef, componentType);
+    private static boolean isSubmerged(@Nonnull World world, int x, int y, int z) {
+        int fluidId = world.getFluidId(x, y, z);
+        return fluidId != 0 && fluidId != Integer.MIN_VALUE;
     }
 
-    @Nullable
-    private static PendingChangeChunk getOrCreateChangeChunk(@Nonnull World world, int worldX, int worldZ) {
-        ComponentType<ChunkStore, PendingChangeChunk> componentType = getComponentType();
-        if (componentType == null) return null;
-
-        ChunkStore chunkStore = world.getChunkStore();
-        long chunkIndex = ChunkUtil.indexChunkFromBlock(worldX, worldZ);
-        Ref<ChunkStore> chunkRef = chunkStore.getChunkReference(chunkIndex);
-        if (chunkRef == null || !chunkRef.isValid()) return null;
-
-        return chunkStore.getStore().ensureAndGetComponent(chunkRef, componentType);
-    }
-
-    @Nullable
-    private static ComponentType<ChunkStore, PendingChangeChunk> getComponentType() {
-        return InteractiveFluidsPlugin.getPendingChangeChunkType();
-    }
 
     private static void tickSurrounding(@Nonnull World world, int blockX, int blockY, int blockZ) {
         for (int dy = -1; dy <= 1; dy++) {
@@ -223,5 +157,16 @@ public final class FluidCollisionManager {
                 }
             }
         }
+    }
+
+    @Nonnull
+    private static String worldKey(@Nonnull World world) {
+        UUID uuid = world.getWorldConfig().getUuid();
+        return uuid.toString();
+    }
+
+    @Nullable
+    private static World worldFromKey(@Nonnull String worldKey) {
+        return Universe.get().getWorld(UUID.fromString(worldKey));
     }
 }
