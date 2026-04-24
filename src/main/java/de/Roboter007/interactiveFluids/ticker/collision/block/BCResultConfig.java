@@ -15,7 +15,6 @@ public class BCResultConfig {
     protected int blockToPlaceIndex = Integer.MIN_VALUE;
     protected String soundEvent;
     protected int soundEventIndex = Integer.MIN_VALUE;
-    //protected boolean ignoreWhenSubmerged = false;
     protected boolean useBreakAnimation = false;
 
     public int getBlockToPlaceIndex() {
@@ -47,10 +46,6 @@ public class BCResultConfig {
         return this.soundEventIndex;
     }
 
-    /*public boolean isIgnoreWhenSubmerged() {
-        return this.ignoreWhenSubmerged;
-    } */
-
     public boolean useBreakAnimation() {
         return this.useBreakAnimation;
     }
@@ -61,7 +56,6 @@ public class BCResultConfig {
                 .appendInherited(new KeyedCodec<>("BlockState", Codec.STRING), (o, v) -> o.blockState = v, (o) -> o.blockState, (o, p) -> o.blockState = p.blockState).documentation("The block state of the block that gets placed").add()
                 .appendInherited(new KeyedCodec<>("BlockPlaceDelay", Codec.LONG), (o, v) -> o.blockPlaceDelay = v, (o) -> o.blockPlaceDelay, (o, p) -> o.blockPlaceDelay = p.blockPlaceDelay).documentation("If defined int will delay the block placement by a certain amount in ticks").add()
                 .appendInherited(new KeyedCodec<>("SoundEvent", Codec.STRING), (o, v) -> o.soundEvent = v, (o) -> o.soundEvent, (o, p) -> o.soundEvent = p.soundEvent).addValidator(SoundEvent.VALIDATOR_CACHE.getValidator()).add()
-                //.appendInherited(new KeyedCodec<>("IgnoreWhenSubmerged", Codec.BOOLEAN), (o, v) -> o.ignoreWhenSubmerged = v, (o) -> o.ignoreWhenSubmerged, (o, p) -> o.ignoreWhenSubmerged = p.ignoreWhenSubmerged).documentation("If true, the conversion will be skipped while the target block is submerged").add()
                 .appendInherited(new KeyedCodec<>("UseBreakAnimation", Codec.BOOLEAN), (o, v) -> o.useBreakAnimation = v, (o) -> o.useBreakAnimation, (o, p) -> o.useBreakAnimation = p.useBreakAnimation).documentation("If true, the block damage overlay is shown while the delayed conversion is pending").add()
                 .build();
 

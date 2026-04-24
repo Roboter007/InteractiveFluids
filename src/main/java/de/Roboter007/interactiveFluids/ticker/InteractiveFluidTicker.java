@@ -99,7 +99,7 @@ public class InteractiveFluidTicker extends FluidTicker {
         if (worldY == 0) {
             return BlockTickStrategy.SLEEP;
         } else {
-            BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Spread, fluidId, BLOCK_MAP, world, worldX, worldY, worldZ, accessor, blockSection);
+            BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Spread, fluidId, world, worldX, worldY, worldZ, accessor, blockSection);
             if(blockTickStrategy != null) {
                 return blockTickStrategy;
             } else {
@@ -232,7 +232,7 @@ public class InteractiveFluidTicker extends FluidTicker {
 
 
     @Nullable
-    public BlockTickStrategy checkNearbyBlocks(FlowPhase flowPhase, int fluidId, BlockTypeAssetMap<String, BlockType> blockMap, World world, int worldX, int worldY, int worldZ, Accessor accessor, BlockSection blockSection) {
+    public BlockTickStrategy checkNearbyBlocks(FlowPhase flowPhase, int fluidId, World world, int worldX, int worldY, int worldZ, Accessor accessor, BlockSection blockSection) {
         for (Vector3i vector3i : getNeighborBlockPos()) {
             int blockX = worldX + vector3i.x;
             int blockY = worldY + vector3i.y;
@@ -246,7 +246,7 @@ public class InteractiveFluidTicker extends FluidTicker {
             }
 
             int blockId = otherBlockSection.get(blockX, blockY, blockZ);
-            BlockType block = blockMap.getAsset(blockId);
+            BlockType block = BLOCK_MAP.getAsset(blockId);
             if (block == null) {
                 continue;
             }
@@ -272,7 +272,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                         BlockBoundingBoxes blockBoundingBoxes = BlockBoundingBoxes.getAssetMap().getAsset(block.getHitboxType());
 
                         if (blockBoundingBoxes != null) {
-                            int dBlockY = blockY - getFluidPosition(30, block.getId(), otherBlockSection, blockMap, blockX, blockY, blockZ);
+                            int dBlockY = blockY - getFluidPosition(30, block.getId(), otherBlockSection, blockX, blockY, blockZ);
 
                             executeCollision(world, fluidId, config, otherBlockSection, blockX, dBlockY, blockZ);
                         }
@@ -286,10 +286,10 @@ public class InteractiveFluidTicker extends FluidTicker {
         return null;
     }
 
-    public static int getFluidPosition(int maxSearchHeight, String blockIdToCheck, BlockSection otherBlockSection, BlockTypeAssetMap<String, BlockType> blockMap, int blockX, int blockY, int blockZ) {
+    public static int getFluidPosition(int maxSearchHeight, String blockIdToCheck, BlockSection otherBlockSection, int blockX, int blockY, int blockZ) {
         for (int i = 1; i <= maxSearchHeight; i++) {
             int block = otherBlockSection.get(blockX, blockY - i, blockZ);
-            BlockType selectedBlock = blockMap.getAsset(block);
+            BlockType selectedBlock = BLOCK_MAP.getAsset(block);
             if(selectedBlock != null) {
                 if(!selectedBlock.getId().equals(blockIdToCheck)) {
                     return i - 1;
@@ -327,7 +327,6 @@ public class InteractiveFluidTicker extends FluidTicker {
 
         FluidCollisionManager.addDelayedCollision(world, blockX, blockY, blockZ, expectedType, resultBlock, fluidId, resultConfig.getBlockPlaceDelay(), resultConfig.useBreakAnimation());
     }
-
 
 
 
@@ -401,7 +400,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                     fluidSection.setFluid(worldX, worldY, worldZ, 0, (byte) 0);
                     setTickingSurrounding(accessor, blockSection, worldX, worldY, worldZ);
 
-                    BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Demote, fluidId, BlockType.getAssetMap(), world, worldX, worldY, worldZ, accessor, blockSection);
+                    BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Demote, fluidId, world, worldX, worldY, worldZ, accessor, blockSection);
                     return Objects.requireNonNullElse(blockTickStrategy, BlockTickStrategy.SLEEP);
                 }
 
