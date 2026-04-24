@@ -46,6 +46,8 @@ public class InteractiveFluidTicker extends FluidTicker {
     private static final BlockTypeAssetMap<String, BlockType> BLOCK_MAP = BlockType.getAssetMap();
     private static final IndexedLookupTableAssetMap<String, Fluid> FLUID_MAP = Fluid.getAssetMap();
 
+    private static final int[] DEFAULT_SHAPE_SIZE = {1, 1, 1};
+
     private String spreadFluid;
     private int spreadFluidId;
 
@@ -86,11 +88,7 @@ public class InteractiveFluidTicker extends FluidTicker {
     }
 
     public static int[] shapeGenConfigDefault() {
-        int[] defaultConfig = new int[3];
-        defaultConfig[0] = 1;
-        defaultConfig[1] = 1;
-        defaultConfig[2] = 1;
-        return defaultConfig;
+        return DEFAULT_SHAPE_SIZE;
     }
 
 
@@ -144,6 +142,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                     int sourceRotationIndex = blockSection.getRotationIndex(worldX, worldY, worldZ);
                     int sourceFiller = blockSection.getFiller(worldX, worldY, worldZ);
 
+                    Object2ObjectMap<String, FluidCollisionConfig> fluidCollisionMap = this.getFluidCollisionMap();
                     for (int i = 0; i < ORTO_OFFSETS.length; i++) {
                         if (offsets == 0 || (offsets & 1 << i) != 0) {
                             Vector2i offset = ORTO_OFFSETS[i];
@@ -170,15 +169,15 @@ public class InteractiveFluidTicker extends FluidTicker {
                                     Fluid otherFluid = otherFluidSection.getFluid(otherFluidId);
                                     if (otherFluidId != 0 && otherFluidId != spreadFluidId) {
                                         FluidCollisionConfig config;
-                                        if(this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
+                                        if(fluidCollisionMap.containsKey(IFOperators.ALL_BLOCKS)) {
                                             if(otherFluid != null && otherFluid.getId().equals("Empty")) {
                                                 config = null;
                                             } else {
-                                                config = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
+                                                config = fluidCollisionMap.get(IFOperators.ALL_BLOCKS);
                                             }
 
                                         } else if(otherFluid != null) {
-                                            config = this.getFluidCollisionMap().get(otherFluid.getId());
+                                            config = fluidCollisionMap.get(otherFluid.getId());
                                         } else {
                                             config = null;
                                         }
@@ -235,12 +234,9 @@ public class InteractiveFluidTicker extends FluidTicker {
     @Nullable
     public BlockTickStrategy checkNearbyBlocks(FlowPhase flowPhase, int fluidId, BlockTypeAssetMap<String, BlockType> blockMap, World world, int worldX, int worldY, int worldZ, Accessor accessor, BlockSection blockSection) {
         for (Vector3i vector3i : getNeighborBlockPos()) {
-            int x = vector3i.x;
-            int y = vector3i.y;
-            int z = vector3i.z;
-            int blockX = worldX + x;
-            int blockY = worldY + y;
-            int blockZ = worldZ + z;
+            int blockX = worldX + vector3i.x;
+            int blockY = worldY + vector3i.y;
+            int blockZ = worldZ + vector3i.z;
 
             boolean isDifferentSection = !ChunkUtil.isSameChunkSection(worldX, worldY, worldZ, blockX, blockY, blockZ);
             BlockSection otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, blockY, blockZ) : blockSection;
@@ -275,10 +271,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                     if (block != null && block.getDrawType() != DrawType.Cube) {
                         BlockBoundingBoxes blockBoundingBoxes = BlockBoundingBoxes.getAssetMap().getAsset(block.getHitboxType());
 
-                        //ToDo: possible better solution for getting hitbox height or something?
-                        //BlockBoundingBoxes boxes = block.getData().getContainerKey((Class<? extends com.hypixel.hytale.assetstore.JsonAsset<BlockBoundingBoxes>>) BlockBoundingBoxes.class);
                         if (blockBoundingBoxes != null) {
-                            // maxSearchHeight = 30 -> hardcoded due to missing possibility for getting the hitbox height
                             int dBlockY = blockY - getFluidPosition(30, block.getId(), otherBlockSection, blockMap, blockX, blockY, blockZ);
 
                             executeCollision(world, fluidId, config, otherBlockSection, blockX, dBlockY, blockZ);
