@@ -111,21 +111,20 @@ public final class FluidCollisionManager {
         List<PendingChange> queue = QUEUES.get(worldKey(world));
         if (queue != null && !queue.isEmpty()) {
             synchronized (queue) {
-                Iterator<PendingChange> it = queue.iterator();
-                while (it.hasNext()) {
-                    PendingChange change = it.next();
+                List<PendingChange> currentChanges = new ArrayList<>(queue);
 
-                    if(change.isStillTheExpectedBlock(world)) {
+                for (PendingChange change : currentChanges) {
+                    if (change.isStillTheExpectedBlock(world)) {
                         if (change.canPlaceBlock(currentTick)) {
                             if (change.placeBlock(world)) {
                                 tickSurrounding(world, change.x, change.y, change.z);
                             }
-                            it.remove();
+                            queue.remove(change);
                         } else if (change.showBreakAnimation) {
                             change.updateBreakAnimation(world, currentTick);
                         }
                     } else {
-                        it.remove();
+                        queue.remove(change);
                     }
                 }
             }
