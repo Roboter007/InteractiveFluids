@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "de.Roboter007"
-version = "0.8.4"
+version = "0.8.5"
 val javaVersion = 25
 val home: String? = System.getenv("HOME")
 val os = System.getProperty("os.name").lowercase()
