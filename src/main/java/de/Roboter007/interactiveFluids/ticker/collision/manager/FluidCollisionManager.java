@@ -1,10 +1,16 @@
 package de.Roboter007.interactiveFluids.ticker.collision.manager;
 
+import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -19,9 +25,8 @@ public final class FluidCollisionManager {
         private final int x;
         private final int y;
         private final int z;
-        private final BlockType originalType;
-        @Nullable
-        private final BlockType resultType;
+        private final Asset sourceType;
+        private final Asset resultType;
         private final int expectedFluidId;
 
         private final boolean showBreakAnimation;
@@ -32,12 +37,12 @@ public final class FluidCollisionManager {
 
         private float lastSentHealth = 1.0f;
 
-        private PendingChange(int x, int y, int z, long createdAtTick, long delayedTicks, BlockType originalType, @Nullable BlockType resultType, int expectedFluidId, boolean showBreakAnimation) {
+        private PendingChange(int x, int y, int z, long createdAtTick, long delayedTicks, Asset sourceType, Asset resultType, int expectedFluidId, boolean showBreakAnimation) {
             this.x = x;
             this.y = y;
             this.z = z;
             this.delayedTicks = delayedTicks;
-            this.originalType = originalType;
+            this.sourceType = sourceType;
             this.resultType = resultType;
             this.expectedFluidId = expectedFluidId;
             this.showBreakAnimation = showBreakAnimation;
@@ -51,7 +56,7 @@ public final class FluidCollisionManager {
             return (float) elapsed / this.delayedTicks;
         }
 
-        private boolean canPlaceBlock(long currentTick) {
+        private boolean canPlace(long currentTick) {
             return currentTick >= this.executeAtTick;
         }
 
@@ -71,20 +76,47 @@ public final class FluidCollisionManager {
             this.lastSentHealth = 1.0f;
         }
 
-        public boolean placeBlock(@Nonnull World world) {
+        public boolean place(@Nonnull World world) {
             long chunkIndex = ChunkUtil.indexChunkFromBlock(this.x, this.z);
             WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
 
             if (chunk != null) {
-                if (this.resultType != null) {
-                    int resultId = BlockType.getAssetMap().getIndex(this.resultType.getId());
-
+                if(resultType.isBlock()) {
+                    int resultId = this.resultType.getId();
                     int rotation = world.getBlockRotationIndex(this.x, this.y, this.z);
+
                     this.clearBreakAnimation(world);
-                    return chunk.setBlock(this.x, this.y, this.z, resultId, this.resultType, rotation, 0, 0);
-                } else {
-                    chunk.setBlock(this.x, this.y, this.z, 0);
+
+                    return chunk.setBlock(this.x, this.y, this.z, resultId, this.resultType.getBlockType(), rotation, 0, 0);
+                } else if (resultType.isFluid()) {
                     this.clearBreakAnimation(world);
+
+                    Ref<ChunkStore> sectionRef = world.getChunkStore().getChunkSectionReferenceAtBlock(this.x, this.y, this.z);
+
+                    if (sectionRef == null) {
+                        return false;
+                    }
+
+                    Store<ChunkStore> store = sectionRef.getStore();
+                    FluidSection fluidSection = store.ensureAndGetComponent(sectionRef, FluidSection.getComponentType());
+
+                    Fluid fluid = this.resultType.getFluid();
+                    if (fluid == null || this.resultType.getFluidLevel() == Byte.MIN_VALUE) {
+                        return false;
+                    }
+
+                    boolean placed = fluidSection.setFluid(this.x, this.y, this.z, fluid, this.resultType.getFluidLevel());
+
+                    if (placed) {
+                        chunk.setBlock(this.x, this.y, this.z, BlockType.EMPTY_ID, BlockType.EMPTY, 0, 0, 0);
+
+                        chunk.setTicking(this.x, this.y, this.z, true);
+                        world.performBlockUpdate(this.x, this.y, this.z);
+                        chunk.markNeedsSaving();
+                        return true;
+                    } else {
+                        return false;
+                    }
                 }
                 return true;
             } else {
@@ -92,17 +124,45 @@ public final class FluidCollisionManager {
             }
         }
 
-        public boolean isStillTheExpectedBlock(World world) {
-            BlockType block = world.getBlockType(this.x, this.y, this.z);
-            return block != null && block.getId().equals(originalType.getId());
+        public boolean isStillExpectedAsset(World world) {
+            if(sourceType.isBlock()) {
+                BlockType block = world.getBlockType(this.x, this.y, this.z);
+                return block != null && block.getId().equals(sourceType.getName());
+            } else if (sourceType.isFluid()) {
+                int fluidId = world.getFluidId(this.x, this.y, this.z);
+                return fluidId != Integer.MIN_VALUE && fluidId == sourceType.getId();
+            } else {
+                throw new RuntimeException("Invalid State for Source Type!");
+            }
         }
 
     }
 
 
-    public static void addDelayedCollision(@Nonnull World world, int x, int y, int z, @Nonnull BlockType originalType, @Nullable BlockType resultType, int expectedFluidId, long delayedTicks, boolean showBreakAnimation) {
+    public static void addDelayedBlockToBlock(@Nonnull World world, int x, int y, int z, @Nonnull BlockType originalType, @Nonnull BlockType resultType, int expectedFluidId, long delayedTicks, boolean showBreakAnimation) {
         String worldKey = worldKey(world);
-        PendingChange change = new PendingChange(x, y, z, world.getTick(), delayedTicks, originalType, resultType, expectedFluidId, showBreakAnimation);
+        PendingChange change = new PendingChange(x, y, z, world.getTick(), delayedTicks, new Asset(originalType), new Asset(resultType), expectedFluidId, showBreakAnimation);
+
+        QUEUES.computeIfAbsent(worldKey, _ -> Collections.synchronizedList(new ArrayList<>())).add(change);
+    }
+
+    public static void addDelayedBlockToFluid(@Nonnull World world, int x, int y, int z, @Nonnull BlockType originalType, @Nonnull Fluid resultType, byte resultFluidLevel, int expectedFluidId, long delayedTicks, boolean showBreakAnimation) {
+        String worldKey = worldKey(world);
+        PendingChange change = new PendingChange(x, y, z, world.getTick(), delayedTicks, new Asset(originalType), new Asset(resultType, resultFluidLevel), expectedFluidId, showBreakAnimation);
+
+        QUEUES.computeIfAbsent(worldKey, _ -> Collections.synchronizedList(new ArrayList<>())).add(change);
+    }
+
+    public static void addDelayedFluidToBlock(@Nonnull World world, int x, int y, int z, @Nonnull Fluid originalType, @NotNull BlockType resultType, int expectedFluidId, long delayedTicks) {
+        String worldKey = worldKey(world);
+        PendingChange change = new PendingChange(x, y, z, world.getTick(), delayedTicks, new Asset(originalType), new Asset(resultType), expectedFluidId, false);
+
+        QUEUES.computeIfAbsent(worldKey, _ -> Collections.synchronizedList(new ArrayList<>())).add(change);
+    }
+
+    public static void addDelayedFluidToFluid(@Nonnull World world, int x, int y, int z, @Nonnull Fluid originalType, @NotNull Fluid resultType, byte resultFluidLevel, int expectedFluidId, long delayedTicks) {
+        String worldKey = worldKey(world);
+        PendingChange change = new PendingChange(x, y, z, world.getTick(), delayedTicks, new Asset(originalType), new Asset(resultType, resultFluidLevel), expectedFluidId, false);
 
         QUEUES.computeIfAbsent(worldKey, _ -> Collections.synchronizedList(new ArrayList<>())).add(change);
     }
@@ -114,9 +174,9 @@ public final class FluidCollisionManager {
                 List<PendingChange> currentChanges = new ArrayList<>(queue);
 
                 for (PendingChange change : currentChanges) {
-                    if (change.isStillTheExpectedBlock(world)) {
-                        if (change.canPlaceBlock(currentTick)) {
-                            if (change.placeBlock(world)) {
+                    if (change.isStillExpectedAsset(world)) {
+                        if (change.canPlace(currentTick)) {
+                            if (change.place(world)) {
                                 tickSurrounding(world, change.x, change.y, change.z);
                             }
                             queue.remove(change);

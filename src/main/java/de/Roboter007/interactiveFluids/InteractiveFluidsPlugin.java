@@ -13,6 +13,7 @@ import de.Roboter007.interactiveFluids.ticker.collision.manager.FluidCollisionMa
 
 import java.util.concurrent.TimeUnit;
 
+//ToDo: new Hytale Mod for an implementation for fields -> you should be able to water it with an watering can & water it with the water fluid
 public class InteractiveFluidsPlugin extends JavaPlugin {
     protected static InteractiveFluidsPlugin instance;
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();

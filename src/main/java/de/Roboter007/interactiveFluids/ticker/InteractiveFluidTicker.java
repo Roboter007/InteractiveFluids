@@ -21,9 +21,11 @@ import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
-import de.Roboter007.interactiveFluids.ticker.collision.block.BCConfigEntry;
+import de.Roboter007.interactiveFluids.ticker.collision.block.CollisionConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.block.BlockCollisionConfig;
-import de.Roboter007.interactiveFluids.ticker.collision.block.BCResultConfig;
+import de.Roboter007.interactiveFluids.ticker.collision.block.CollisionResultConfig;
+import de.Roboter007.interactiveFluids.ticker.collision.block.CollisionSourceConfig;
+import de.Roboter007.interactiveFluids.ticker.collision.manager.AssetType;
 import de.Roboter007.interactiveFluids.ticker.fluidblocking.FluidBlockingBlockConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.fluid.FluidCollisionConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.manager.FluidCollisionManager;
@@ -50,10 +52,6 @@ public class InteractiveFluidTicker extends FluidTicker {
 
     private String spreadFluid;
     private int spreadFluidId;
-
-    private Map<String, FluidCollisionConfig> rawFluidCollisionMap = Collections.emptyMap();
-    @Nullable
-    private transient Object2ObjectMap<String, FluidCollisionConfig> fluidCollisionMap = null;
 
     private Map<String, FluidBlockingBlockConfigEntry> fluidBlockingBlocks = null;
 
@@ -99,7 +97,7 @@ public class InteractiveFluidTicker extends FluidTicker {
         if (worldY == 0) {
             return BlockTickStrategy.SLEEP;
         } else {
-            BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Spread, fluidId, world, worldX, worldY, worldZ, accessor, blockSection);
+            BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Spread, fluidId, world, worldX, worldY, worldZ, accessor, blockSection, fluidSection);
             if(blockTickStrategy != null) {
                 return blockTickStrategy;
             } else {
@@ -142,7 +140,6 @@ public class InteractiveFluidTicker extends FluidTicker {
                     int sourceRotationIndex = blockSection.getRotationIndex(worldX, worldY, worldZ);
                     int sourceFiller = blockSection.getFiller(worldX, worldY, worldZ);
 
-                    Object2ObjectMap<String, FluidCollisionConfig> fluidCollisionMap = this.getFluidCollisionMap();
                     for (int i = 0; i < ORTO_OFFSETS.length; i++) {
                         if (offsets == 0 || (offsets & 1 << i) != 0) {
                             Vector2i offset = ORTO_OFFSETS[i];
@@ -168,22 +165,34 @@ public class InteractiveFluidTicker extends FluidTicker {
                                     int otherFluidId = otherFluidSection.getFluidId(blockX, worldY, blockZ);
                                     Fluid otherFluid = otherFluidSection.getFluid(otherFluidId);
                                     if (otherFluidId != 0 && otherFluidId != spreadFluidId) {
-                                        FluidCollisionConfig config;
-                                        if(fluidCollisionMap.containsKey(IFOperators.ALL_BLOCKS)) {
+                                        //ToDo: More work & reimplement wildcard support & rework stuff & Fix Stuff
+
+                                        Object2ObjectOpenHashMap<String, CollisionConfigEntry> collisionMap = getBlockCollisionConfig().getCollision(FlowPhase.Spread);
+                                        CollisionConfigEntry config;
+                                        if(collisionMap.containsKey(IFOperators.ANYTHING)) {
                                             if(otherFluid != null && otherFluid.getId().equals("Empty")) {
                                                 config = null;
                                             } else {
-                                                config = fluidCollisionMap.get(IFOperators.ALL_BLOCKS);
+                                                config = collisionMap.get(IFOperators.ANYTHING);
                                             }
 
+                                        } else if (collisionMap.containsKey(IFOperators.ALL_FROM_CURRENT_ASSET_TYPE)) {
+                                            if(otherFluid != null && otherFluid.getId().equals("Empty")) {
+                                                config = null;
+                                            } else {
+                                                config = collisionMap.get(IFOperators.ALL_FROM_CURRENT_ASSET_TYPE);
+                                                if(config.getSourceConfig().getAssetType() == AssetType.Fluid) {
+                                                    config = null;
+                                                }
+                                            }
                                         } else if(otherFluid != null) {
-                                            config = fluidCollisionMap.get(otherFluid.getId());
+                                            config = collisionMap.get(otherFluid.getId());
                                         } else {
                                             config = null;
                                         }
 
 
-                                        if (config == null || executeCollision(world, accessor, otherFluidSection, otherBlockSection, config, blockX, worldY, blockZ)) {
+                                        if (config == null || executeFluidCollision(world, fluidId, config, otherBlockSection, otherFluidSection, blockX, worldY, blockZ)) {
                                             continue;
                                         }
                                     }
@@ -203,17 +212,29 @@ public class InteractiveFluidTicker extends FluidTicker {
                     }
                 }
             } else {
-                FluidCollisionConfig fluidCollisionConfig;
-                if (this.getFluidCollisionMap().containsKey(IFOperators.ALL_BLOCKS)) {
-                    fluidCollisionConfig = this.getFluidCollisionMap().get(IFOperators.ALL_BLOCKS);
+                Object2ObjectOpenHashMap<String, CollisionConfigEntry> collisionMap = getBlockCollisionConfig().getCollision(FlowPhase.Spread);
+                CollisionConfigEntry config;
+                if(collisionMap.containsKey(IFOperators.ANYTHING)) {
+                    if(fluidBelow != null && fluidBelow.getId().equals("Empty")) {
+                        config = null;
+                    } else {
+                        config = collisionMap.get(IFOperators.ANYTHING);
+                    }
+
+                } else if (collisionMap.containsKey(IFOperators.ALL_FROM_CURRENT_ASSET_TYPE)) {
+                    if(fluidBelow != null && fluidBelow.getId().equals("Empty")) {
+                        config = null;
+                    } else {
+                        config = collisionMap.get(IFOperators.ALL_FROM_CURRENT_ASSET_TYPE);
+                    }
                 } else if(fluidBelow != null) {
-                    fluidCollisionConfig = this.getFluidCollisionMap().get(fluidBelow.getId());
+                    config = collisionMap.get(fluidBelow.getId());
                 } else {
-                    fluidCollisionConfig = null;
+                    config = null;
                 }
 
 
-                if (fluidCollisionConfig != null && !executeCollision(world, accessor, fluidSectionBelow, blockSectionBelow, fluidCollisionConfig, worldX, worldY - 1, worldZ)) {
+                if (config != null && !executeFluidCollision(world, fluidId, config, blockSectionBelow, fluidSectionBelow, worldX, worldY - 1, worldZ)) {
                     return BlockTickStrategy.CONTINUE;
                 } else {
                     byte fluidLevelBelow = fluidSectionBelow.getFluidLevel(worldX, worldY - 1, worldZ);
@@ -232,7 +253,7 @@ public class InteractiveFluidTicker extends FluidTicker {
 
 
     @Nullable
-    public BlockTickStrategy checkNearbyBlocks(FlowPhase flowPhase, int fluidId, World world, int worldX, int worldY, int worldZ, Accessor accessor, BlockSection blockSection) {
+    public BlockTickStrategy checkNearbyBlocks(FlowPhase flowPhase, int fluidId, World world, int worldX, int worldY, int worldZ, Accessor accessor, BlockSection blockSection, FluidSection fluidSection) {
         for (Vector3i vector3i : getNeighborBlockPos()) {
             int blockX = worldX + vector3i.x;
             int blockY = worldY + vector3i.y;
@@ -240,10 +261,12 @@ public class InteractiveFluidTicker extends FluidTicker {
 
             boolean isDifferentSection = !ChunkUtil.isSameChunkSection(worldX, worldY, worldZ, blockX, blockY, blockZ);
             BlockSection otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, blockY, blockZ) : blockSection;
+            FluidSection otherFluidSection = isDifferentSection ? accessor.getFluidSectionByBlock(blockX, worldY, blockZ) : fluidSection;
 
-            if (otherBlockSection == null) {
+            if (otherBlockSection == null || otherFluidSection == null) {
                 return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
             }
+
 
             int blockId = otherBlockSection.get(blockX, blockY, blockZ);
             BlockType block = BLOCK_MAP.getAsset(blockId);
@@ -259,10 +282,10 @@ public class InteractiveFluidTicker extends FluidTicker {
                     blockState = block.getStateForBlock(block);
                 }
 
-                BCConfigEntry config = this.getBlockCollisionConfig().getCollision(flowPhase, otherBlockID, blockState);
+                CollisionConfigEntry config = this.getBlockCollisionConfig().getBlockBlockCollision(flowPhase, otherBlockID, blockState);
 
                 if (config != null) {
-                    String expectedBlockState = config.getConditionConfig().getBlockState();
+                    String expectedBlockState = config.getSourceConfig().getBlockState();
 
                     if (!expectedBlockState.isEmpty()) {
                         block = block.getBlockForState(expectedBlockState);
@@ -274,11 +297,11 @@ public class InteractiveFluidTicker extends FluidTicker {
                         if (blockBoundingBoxes != null) {
                             int dBlockY = blockY - getFluidPosition(30, block.getId(), otherBlockSection, blockX, blockY, blockZ);
 
-                            executeCollision(world, fluidId, config, otherBlockSection, blockX, dBlockY, blockZ);
+                            executeBlockCollision(world, fluidId, config, otherBlockSection, otherFluidSection, blockX, dBlockY, blockZ);
                         }
 
                     } else {
-                        executeCollision(world, fluidId, config, otherBlockSection, blockX, blockY, blockZ);
+                        executeBlockCollision(world, fluidId, config, otherBlockSection, otherFluidSection, blockX, blockY, blockZ);
                     }
                 }
             }
@@ -306,32 +329,73 @@ public class InteractiveFluidTicker extends FluidTicker {
     }
 
 
-    private static void executeCollision(@Nonnull World world, int fluidId, @Nonnull BCConfigEntry config, BlockSection targetSection, int blockX, int blockY, int blockZ) {
-        BCResultConfig resultConfig = config.getResultConfig();
-        BlockType expectedType = BlockType.getAssetMap().getAsset(targetSection.get(blockX, blockY, blockZ));
-        if (expectedType == null) {
-            return;
-        }
+    private static void executeBlockCollision(@Nonnull World world, int fluidId, @Nonnull CollisionConfigEntry config, BlockSection blockSection, FluidSection fluidSection, int blockX, int blockY, int blockZ) {
+        CollisionSourceConfig sourceConfig = config.getSourceConfig();
+        CollisionResultConfig resultConfig = config.getResultConfig();
 
-        BlockType resultBlock = null;
-        int blockToPlaceId = resultConfig.getBlockToPlaceIndex();
-        if (blockToPlaceId != Integer.MIN_VALUE) {
-            resultBlock = BlockType.getAssetMap().getAsset(blockToPlaceId);
-            if (resultBlock != null && !resultConfig.getBlockState().isEmpty()) {
-                resultBlock = resultBlock.getBlockForState(resultConfig.getBlockState());
+        if(resultConfig.getPlaceableAsset().getAssetType() == AssetType.Block) {
+            BlockType resultBlock = null;
+            int blockToPlaceId = resultConfig.getPlaceableAsset().getId();
+            if (blockToPlaceId != Integer.MIN_VALUE) {
+                resultBlock = BlockType.getAssetMap().getAsset(blockToPlaceId);
+                if (resultBlock != null && !resultConfig.getBlockState().isEmpty()) {
+                    resultBlock = resultBlock.getBlockForState(resultConfig.getBlockState());
+                }
             }
-            if (resultBlock == null) {
-                return;
+
+            if (resultBlock != null) {
+                if (sourceConfig.getAssetType() == AssetType.Block) {
+                    BlockType sourceType = BLOCK_MAP.getAsset(blockSection.get(blockX, blockY, blockZ));
+                    if (sourceType == null) {
+                        return;
+                    }
+
+                    FluidCollisionManager.addDelayedBlockToBlock(world, blockX, blockY, blockZ, sourceType, resultBlock, fluidId, resultConfig.getPlaceDelay(), resultConfig.useBreakAnimation());
+                } else {
+                    Fluid sourceType = fluidSection.getFluid(blockX, blockY, blockZ);
+                    if (sourceType == null) {
+                        return;
+                    }
+                    FluidCollisionManager.addDelayedFluidToBlock(world, blockX, blockY, blockZ, sourceType, resultBlock, fluidId, resultConfig.getPlaceDelay());
+                }
             }
         }
+    }
 
-        FluidCollisionManager.addDelayedCollision(world, blockX, blockY, blockZ, expectedType, resultBlock, fluidId, resultConfig.getBlockPlaceDelay(), resultConfig.useBreakAnimation());
+    private static boolean executeFluidCollision(@Nonnull World world, int fluidId, @Nonnull CollisionConfigEntry config, BlockSection blockSection, FluidSection fluidSection, int blockX, int blockY, int blockZ) {
+        CollisionSourceConfig sourceConfig = config.getSourceConfig();
+        CollisionResultConfig resultConfig = config.getResultConfig();
+
+        if (resultConfig.getPlaceableAsset().getAssetType() == AssetType.Fluid) {
+            Fluid resultFluid = FLUID_MAP.getAsset(resultConfig.getPlaceableAsset().getAssetID());
+
+            if (resultFluid != null) {
+                if (sourceConfig.getAssetType() == AssetType.Block) {
+                    BlockType sourceType = BLOCK_MAP.getAsset(blockSection.get(blockX, blockY, blockZ));
+                    if (sourceType == null) {
+                        return false;
+                    }
+
+                    FluidCollisionManager.addDelayedBlockToFluid(world, blockX, blockY, blockZ, sourceType, resultFluid, resultConfig.getFluidLevel(), fluidId, resultConfig.getPlaceDelay(), resultConfig.useBreakAnimation());
+                    return resultConfig.getPlaceableAsset().placeFluid();
+                } else {
+                    Fluid sourceType = fluidSection.getFluid(blockX, blockY, blockZ);
+                    if (sourceType == null) {
+                        return false;
+                    }
+                    FluidCollisionManager.addDelayedFluidToFluid(world, blockX, blockY, blockZ, sourceType, resultFluid, resultConfig.getFluidLevel(), fluidId, resultConfig.getPlaceDelay());
+                    return resultConfig.getPlaceableAsset().placeFluid();
+                }
+            }
+        }
+        return false;
     }
 
 
 
+
     @SuppressWarnings("removal")
-    private static boolean executeCollision(@Nonnull World world, @Nonnull Accessor accessor, @Nonnull FluidSection fluidSection, BlockSection blockSection, @Nonnull FluidCollisionConfig config, int blockX, int blockY, int blockZ) {
+    /*private static boolean executeCollision(@Nonnull World world, @Nonnull Accessor accessor, @Nonnull FluidSection fluidSection, BlockSection blockSection, @Nonnull FluidCollisionConfig config, int blockX, int blockY, int blockZ) {
 
         int blockToPlace = config.getBlockToPlaceIndex();
         if (blockToPlace != Integer.MIN_VALUE) {
@@ -347,7 +411,7 @@ public class InteractiveFluidTicker extends FluidTicker {
         }
 
         return !config.placeFluid;
-    }
+    } */
 
     public boolean isSelfFluid(int selfFluidId, int otherFluidId) {
         return super.isSelfFluid(selfFluidId, otherFluidId) || otherFluidId == this.getSpreadFluidId(selfFluidId);
@@ -363,19 +427,6 @@ public class InteractiveFluidTicker extends FluidTicker {
         }
 
         return this.spreadFluidId == Integer.MIN_VALUE ? fluidId : this.spreadFluidId;
-    }
-
-
-    @Nonnull
-    public Object2ObjectMap<String, FluidCollisionConfig> getFluidCollisionMap() {
-        if (this.fluidCollisionMap == null) {
-            Object2ObjectMap<String, FluidCollisionConfig> collisionMap = new Object2ObjectOpenHashMap<>(this.rawFluidCollisionMap.size());
-
-            collisionMap.putAll(this.rawFluidCollisionMap);
-
-            this.fluidCollisionMap = collisionMap;
-        }
-        return this.fluidCollisionMap;
     }
 
     @Override
@@ -400,7 +451,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                     fluidSection.setFluid(worldX, worldY, worldZ, 0, (byte) 0);
                     setTickingSurrounding(accessor, blockSection, worldX, worldY, worldZ);
 
-                    BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Demote, fluidId, world, worldX, worldY, worldZ, accessor, blockSection);
+                    BlockTickStrategy blockTickStrategy = checkNearbyBlocks(FlowPhase.Demote, fluidId, world, worldX, worldY, worldZ, accessor, blockSection, fluidSection);
                     return Objects.requireNonNullElse(blockTickStrategy, BlockTickStrategy.SLEEP);
                 }
 
@@ -417,8 +468,8 @@ public class InteractiveFluidTicker extends FluidTicker {
     @Override
     public boolean blocksFluidFrom(@NotNull BlockType blockType, int rotationIndex, int offsetX, int offsetZ, int filler) {
         if(fluidBlockingBlocks != null) {
-            if (fluidBlockingBlocks.containsKey(IFOperators.ALL_BLOCKS)) {
-                FluidBlockingBlockConfigEntry entry = fluidBlockingBlocks.get(IFOperators.ALL_BLOCKS);
+            if (fluidBlockingBlocks.containsKey(IFOperators.ANYTHING)) {
+                FluidBlockingBlockConfigEntry entry = fluidBlockingBlocks.get(IFOperators.ANYTHING);
                 if(!entry.blocksFluid) {
                     if(entry.keepVanillaBehavior) {
                         return super.blocksFluidFrom(blockType, rotationIndex, offsetX, offsetZ, filler);
@@ -452,7 +503,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                 .appendInherited(new KeyedCodec<>("FluidBlockingBlocks",new MapCodec<>(FluidBlockingBlockConfigEntry.CODEC, HashMap::new)), (ticker, o) -> ticker.fluidBlockingBlocks = MapUtil.combineUnmodifiable(ticker.fluidBlockingBlocks(), o), (ticker) -> ticker.fluidBlockingBlocks, (ticker, parent) -> ticker.fluidBlockingBlocks = parent.fluidBlockingBlocks).add()
                 .appendInherited(new KeyedCodec<>("SpreadFluid", Codec.STRING), (ticker, o) -> ticker.spreadFluid = o, (ticker) -> ticker.spreadFluid, (ticker, parent) -> ticker.spreadFluid = parent.spreadFluid).addValidator(Fluid.VALIDATOR_CACHE.getValidator().late()).add()
                 .appendInherited(new KeyedCodec<>("FlowShape", FlowShapeConfig.CODEC), (ticker, o) -> ticker.flowShapeConfig = o, (ticker) -> ticker.flowShapeConfig, (ticker, parent) -> ticker.flowShapeConfig = parent.flowShapeConfig).documentation("Defines the interaction field of the fluid regarding their defined block collisions").add()
-                .appendInherited(new KeyedCodec<>("FluidCollisions", new MapCodec<>(FluidCollisionConfig.CODEC, HashMap::new)), (ticker, o) -> ticker.rawFluidCollisionMap = MapUtil.combineUnmodifiable(ticker.rawFluidCollisionMap, o), (ticker) -> ticker.rawFluidCollisionMap, (ticker, parent) -> ticker.rawFluidCollisionMap = parent.rawFluidCollisionMap).documentation("Defines what happens when this fluid tries to spread into another fluid").add()
+                //.appendInherited(new KeyedCodec<>("FluidCollisions", new MapCodec<>(FluidCollisionConfig.CODEC, HashMap::new)), (ticker, o) -> ticker.rawFluidCollisionMap = MapUtil.combineUnmodifiable(ticker.rawFluidCollisionMap, o), (ticker) -> ticker.rawFluidCollisionMap, (ticker, parent) -> ticker.rawFluidCollisionMap = parent.rawFluidCollisionMap).documentation("Defines what happens when this fluid tries to spread into another fluid").add()
                 .appendInherited(new KeyedCodec<>("BlockCollisions", BlockCollisionConfig.CODEC), (ticker, o) -> ticker.blockCollisionConfig = o, (ticker) -> ticker.blockCollisionConfig, (ticker, parent) -> ticker.blockCollisionConfig = parent.blockCollisionConfig).documentation("Defines the interaction field of the fluid regarding their defined block collisions").add()
                 .build();
 
