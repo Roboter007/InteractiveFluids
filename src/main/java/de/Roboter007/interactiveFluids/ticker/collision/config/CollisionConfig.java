@@ -1,4 +1,4 @@
-package de.Roboter007.interactiveFluids.ticker.collision.block;
+package de.Roboter007.interactiveFluids.ticker.collision.config;
 
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
@@ -6,11 +6,9 @@ import com.hypixel.hytale.codec.codecs.map.MapCodec;
 import com.hypixel.hytale.common.util.MapUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
-import de.Roboter007.interactiveFluids.InteractiveFluidsPlugin;
-import de.Roboter007.interactiveFluids.ticker.collision.manager.AssetType;
+import de.Roboter007.interactiveFluids.ticker.collision.AssetType;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
 import de.Roboter007.interactiveFluids.ticker.utils.IFOperators;
-import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
@@ -19,8 +17,8 @@ import javax.annotation.Nullable;
 import java.util.*;
 
 //ToDo: boolean value that defines if a block gets turned back in its original block when the fluid has demoted & save them in a list or something like that
-public class BlockCollisionConfig {
-    public static final BuilderCodec<BlockCollisionConfig> CODEC;
+public class CollisionConfig {
+    public static final BuilderCodec<CollisionConfig> CODEC;
 
     protected Map<String, CollisionConfigEntry> rawBlockSpreadCollisionMap = Collections.emptyMap();
     protected Map<String, CollisionConfigEntry> rawBlockDemoteCollisionMap = Collections.emptyMap();
@@ -108,7 +106,7 @@ public class BlockCollisionConfig {
                 continue;
             }
 
-            if(condition.getAssetType() == AssetType.Block && result.getPlaceableAsset().getAssetType() == AssetType.Block) {
+            if(condition.getAssetType() == AssetType.Block && result.getAssetType() == AssetType.Block) {
 
                 boolean isWildcard = condition.assetID.equals(IFOperators.ANYTHING);
                 if (!isWildcard && !condition.assetID.equals(assetId)) {
@@ -132,7 +130,7 @@ public class BlockCollisionConfig {
 
 
     static {
-        CODEC = BuilderCodec.builder(BlockCollisionConfig.class, BlockCollisionConfig::new)
+        CODEC = BuilderCodec.builder(CollisionConfig.class, CollisionConfig::new)
                 .appendInherited(new KeyedCodec<>("Spread", new MapCodec<>(CollisionConfigEntry.CODEC, HashMap::new)), (ticker, o) -> ticker.rawBlockSpreadCollisionMap = MapUtil.combineUnmodifiable(ticker.rawBlockSpreadCollisionMap, o), (ticker) -> ticker.rawBlockSpreadCollisionMap, (ticker, parent) -> ticker.rawBlockSpreadCollisionMap = parent.rawBlockSpreadCollisionMap).documentation("Defines what happens when this fluid touches a block").add()
                 .appendInherited(new KeyedCodec<>("Demote", new MapCodec<>(CollisionConfigEntry.CODEC, HashMap::new)), (ticker, o) -> ticker.rawBlockDemoteCollisionMap = MapUtil.combineUnmodifiable(ticker.rawBlockDemoteCollisionMap, o), (ticker) -> ticker.rawBlockDemoteCollisionMap, (ticker, parent) -> ticker.rawBlockDemoteCollisionMap = parent.rawBlockDemoteCollisionMap).documentation("Defines what happens when this fluid stops touching a specific block").add()
                 .build();

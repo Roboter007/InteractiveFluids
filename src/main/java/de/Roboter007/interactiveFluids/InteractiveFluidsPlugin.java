@@ -1,6 +1,5 @@
 package de.Roboter007.interactiveFluids;
 
-import com.hypixel.hytale.builtin.buildertools.utils.Material;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.asset.type.fluid.FluidTicker;
@@ -9,7 +8,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import de.Roboter007.interactiveFluids.ticker.InteractiveFluidTicker;
-import de.Roboter007.interactiveFluids.ticker.collision.manager.FluidCollisionManager;
+import de.Roboter007.interactiveFluids.ticker.collision.FluidCollisionManager;
 
 import java.util.concurrent.TimeUnit;
 

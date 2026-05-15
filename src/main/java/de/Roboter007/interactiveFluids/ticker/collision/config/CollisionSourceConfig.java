@@ -1,4 +1,4 @@
-package de.Roboter007.interactiveFluids.ticker.collision.block;
+package de.Roboter007.interactiveFluids.ticker.collision.config;
 
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -10,36 +10,13 @@ import com.hypixel.hytale.codec.schema.config.StringSchema;
 import com.hypixel.hytale.codec.schema.metadata.Metadata;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
-import de.Roboter007.interactiveFluids.ticker.collision.manager.AssetType;
-import de.Roboter007.interactiveFluids.ticker.collision.manager.PlaceableAsset;
+import de.Roboter007.interactiveFluids.ticker.collision.AssetType;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
 public class CollisionSourceConfig {
-    /*public static final BuilderCodec<CollisionSourceConfig> CODEC;
-
-    protected String block;
-    protected String blockState = "";
-
-
-    public String getBlock() {
-        return block;
-    }
-
-
-    public String getBlockState() {
-        return blockState;
-    }
-
-    static {
-        CODEC = BuilderCodec.builder(CollisionSourceConfig.class, CollisionSourceConfig::new)
-                .appendInherited(new KeyedCodec<>("Block", Codec.STRING), (o, v) -> o.block = v, (o) -> o.block, (o, p) -> o.block = p.block).documentation("The block to that gets replaced when a collision occurs").add()
-                .appendInherited(new KeyedCodec<>("BlockState", Codec.STRING), (o, v) -> o.blockState = v, (o) -> o.blockState, (o, p) -> o.blockState = p.blockState).documentation("The block state of the block that gets replaced").add()
-                .build();
-    } */
-
     public static final BuilderCodec<CollisionSourceConfig> BASE_CODEC;
     public static final BuilderCodec<CollisionSourceConfig> FLUID_CODEC;
     public static final BuilderCodec<CollisionSourceConfig> BLOCK_CODEC;
@@ -80,6 +57,16 @@ public class CollisionSourceConfig {
         BLOCK_CODEC = buildCodec(AssetType.Block);
         BASE_CODEC = BLOCK_CODEC;
         CODEC = BLOCK_CODEC;
+    }
+
+    @Override
+    public String toString() {
+        return "CollisionSourceConfig{" +
+                "assetType=" + assetType +
+                ", assetID='" + assetID + '\'' +
+                ", blockState='" + blockState + '\'' +
+                ", id=" + id +
+                '}';
     }
 
     private static BuilderCodec<CollisionSourceConfig> buildCodec(AssetType assetType) {

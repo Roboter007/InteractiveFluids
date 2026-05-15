@@ -1,7 +1,6 @@
-package de.Roboter007.interactiveFluids.ticker.collision.manager;
+package de.Roboter007.interactiveFluids.ticker.collision.config;
 
 import com.hypixel.hytale.codec.Codec;
-import com.hypixel.hytale.codec.ExtraInfo;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.codec.codecs.EnumCodec;
@@ -9,43 +8,21 @@ import com.hypixel.hytale.codec.schema.config.ObjectSchema;
 import com.hypixel.hytale.codec.schema.config.Schema;
 import com.hypixel.hytale.codec.schema.config.StringSchema;
 import com.hypixel.hytale.codec.schema.metadata.Metadata;
-import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
-import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
-import org.bson.BsonValue;
-import org.jetbrains.annotations.NotNull;
+import de.Roboter007.interactiveFluids.ticker.collision.AssetType;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class PlaceableAsset {
-
-    public static final BuilderCodec<PlaceableAsset> CODEC;
+public class CollisionResultConfig {
+    public static final BuilderCodec<CollisionResultConfig> CODEC;
 
     protected AssetType assetType = AssetType.Block;
     protected String assetID = "Empty";
     private int id = Integer.MIN_VALUE;
-    private boolean placeFluid = false;
-
 
     protected String blockState = "";
-
     protected byte fluidLevel = Byte.MIN_VALUE;
-
-    public int getId() {
-        if (id == Integer.MIN_VALUE) {
-            if (assetType == AssetType.Block) {
-                id = BlockType.getBlockIdOrUnknown(this.assetID, "Unknown block type %s", this.assetID);
-            } else if (assetType == AssetType.Fluid) {
-                id = Fluid.getFluidIdOrUnknown(this.assetID, "Unknown fluid %s", this.assetID);
-            }
-        }
-        return id;
-    }
-
-    public boolean placeFluid() {
-        return placeFluid;
-    }
 
     public AssetType getAssetType() {
         return assetType;
@@ -63,37 +40,16 @@ public class PlaceableAsset {
         return assetType == AssetType.Fluid ? fluidLevel : Byte.MIN_VALUE;
     }
 
+    public String getBlockToPlace() {
+        return assetID;
+    }
+
     static {
-        CODEC = BuilderCodec.builder(PlaceableAsset.class, PlaceableAsset::new)
-                .appendInherited(new KeyedCodec<>("AssetType", new EnumCodec<>(AssetType.class)),
-                        (o, v) -> o.assetType = v,
-                        o -> o.assetType,
-                        (o, p) -> o.assetType = p.assetType)
-                .documentation("Defines what type of asset gets placed.")
-                .add()
-
-                .appendInherited(new KeyedCodec<>("AssetId", Codec.STRING),
-                        (o, v) -> o.assetID = v,
-                        o -> o.assetID,
-                        (o, p) -> o.assetID = p.assetID)
-                .documentation("The asset (block or fluid) to place when a collision occurs.")
-                .add()
-
-                .appendInherited(new KeyedCodec<>("BlockState", Codec.STRING),
-                        (o, v) -> o.blockState = v,
-                        o -> o.blockState,
-                        (o, p) -> o.blockState = p.blockState)
-                .documentation("The block state of the block that gets placed.")
-                .add()
-                .appendInherited(new KeyedCodec<>("FluidLevel", Codec.BYTE),
-                        (o, v) -> o.fluidLevel = v,
-                        o -> o.fluidLevel,
-                        (o, p) -> o.fluidLevel = p.fluidLevel)
-                .documentation("The fluid level of the fluid that gets placed.")
-                .add()
-                .appendInherited(new KeyedCodec<>("PlaceFluid", Codec.BOOLEAN), (o, v) -> o.placeFluid = v, (o) -> o.placeFluid, (o, p) -> o.placeFluid = p.placeFluid).documentation("Whether to still place the fluid on collision")
-                .add()
-
+        CODEC = BuilderCodec.builder(CollisionResultConfig.class, CollisionResultConfig::new)
+                .appendInherited(new KeyedCodec<>("AssetType", new EnumCodec<>(AssetType.class)), (o, v) -> o.assetType = v, o -> o.assetType, (o, p) -> o.assetType = p.assetType).documentation("Defines what type of asset gets placed.").add()
+                .appendInherited(new KeyedCodec<>("AssetId", Codec.STRING), (o, v) -> o.assetID = v, o -> o.assetID, (o, p) -> o.assetID = p.assetID).documentation("The asset (block or fluid) to place when a collision occurs.").add()
+                .appendInherited(new KeyedCodec<>("BlockState", Codec.STRING), (o, v) -> o.blockState = v, o -> o.blockState, (o, p) -> o.blockState = p.blockState).documentation("The block state of the block that gets placed.").add()
+                .appendInherited(new KeyedCodec<>("FluidLevel", Codec.BYTE), (o, v) -> o.fluidLevel = v, o -> o.fluidLevel, (o, p) -> o.fluidLevel = p.fluidLevel).documentation("The fluid level of the fluid that gets placed.").add()
                 .metadata(new AssetVariantSchemaMetadata())
 
                 .afterDecode((asset, _) -> {
@@ -105,8 +61,19 @@ public class PlaceableAsset {
                         asset.fluidLevel = Byte.MIN_VALUE;
                     }
                 })
-
                 .build();
+
+    }
+
+    @Override
+    public String toString() {
+        return "CollisionResultConfig{" +
+                "assetType=" + assetType +
+                ", assetID='" + assetID + '\'' +
+                ", id=" + id +
+                ", blockState='" + blockState + '\'' +
+                ", fluidLevel=" + fluidLevel +
+                '}';
     }
 
     private static final class AssetVariantSchemaMetadata implements Metadata {

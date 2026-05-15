@@ -1,4 +1,4 @@
-package de.Roboter007.interactiveFluids.ticker.collision.manager;
+package de.Roboter007.interactiveFluids.ticker.collision;
 
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;

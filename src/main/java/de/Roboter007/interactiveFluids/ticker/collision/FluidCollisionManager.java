@@ -1,4 +1,4 @@
-package de.Roboter007.interactiveFluids.ticker.collision.manager;
+package de.Roboter007.interactiveFluids.ticker.collision;
 
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
