@@ -97,31 +97,32 @@ public class CollisionConfig {
 
 
     @Nullable
-    public CollisionConfigEntry getBlockBlockCollision(FlowPhase flowPhase, String assetId, @Nullable String blockState) {
+    public CollisionConfigEntry getCollisionByCondition(FlowPhase flowPhase, String assetId, @Nullable String blockState) {
         for (Map.Entry<CollisionSourceConfig, CollisionResultConfig> entry : this.getCollisionMap(flowPhase).entrySet()) {
-            CollisionSourceConfig condition = entry.getKey();
+            CollisionSourceConfig source = entry.getKey();
             CollisionResultConfig result = entry.getValue();
 
-            if (condition == null || result == null) {
+            if (source == null || result == null) {
                 continue;
             }
 
-            if(condition.getAssetType() == AssetType.Block && result.getAssetType() == AssetType.Block) {
-
-                boolean isWildcard = condition.assetID.equals(IFOperators.ANYTHING);
-                if (!isWildcard && !condition.assetID.equals(assetId)) {
-                    continue;
-                }
-
-                String requiredState = condition.blockState;
-                if (requiredState == null || requiredState.isEmpty()) {
-                    return new CollisionConfigEntry(condition, entry.getValue());
-                }
-
-                if (requiredState.equals(blockState)) {
-                    return new CollisionConfigEntry(condition, entry.getValue());
+            if (source.assetID.equals(IFOperators.ANYTHING) || source.assetID.equals(assetId)) {
+                if(source.getAssetType() == AssetType.Block) {
+                    if(blockState != null) {
+                        String requiredState = source.blockState;
+                        if (requiredState != null && !requiredState.isEmpty()) {
+                            if (requiredState.equals(blockState)) {
+                                return new CollisionConfigEntry(source, result);
+                            }
+                        }
+                    } else {
+                        return new CollisionConfigEntry(source, result);
+                    }
+                } else {
+                    return new CollisionConfigEntry(source, result);
                 }
             }
+
         }
         return null;
     }
