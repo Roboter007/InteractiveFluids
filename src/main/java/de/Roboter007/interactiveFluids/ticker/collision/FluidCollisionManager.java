@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class FluidCollisionManager {
 
-    private static final int MAX_COLLISIONS_PER_TICK = 5000;
+    private static final int MAX_COLLISIONS_PER_TICK = 1000;
 
     private static final ConcurrentHashMap<String, List<PendingChange>> QUEUES = new ConcurrentHashMap<>();
 
@@ -183,12 +183,12 @@ public final class FluidCollisionManager {
             return MAX_COLLISIONS_PER_TICK;
         }
         if (avgTickMs < 50.0) {
-            return 3000;
+            return 500;
         }
         if (avgTickMs < 75.0) {
-            return 1000;
+            return 250;
         }
-        return 250;
+        return 100;
     }
 
     public static void tick(@Nonnull World world, long currentTick) {
@@ -196,7 +196,6 @@ public final class FluidCollisionManager {
         if (queue != null && !queue.isEmpty()) {
             synchronized (queue) {
                 List<PendingChange> currentChanges = new ArrayList<>(queue);
-
 
                 int maxCollisions = getCollisionLimit(world);
 
