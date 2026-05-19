@@ -37,8 +37,10 @@ public class Asset {
         this.assetType = AssetType.Block;
     }
 
-    public byte getFluidLevel() {
-        if (fluidLevel == -1) {
+    public byte getFluidLevel(byte fluidLevelAtPos) {
+        if (fluidLevel == -2) {
+            return fluidLevelAtPos;
+        } else if (fluidLevel == -1) {
             return (byte) fluid.getMaxFluidLevel();
         } else if(fluidLevel <= 0) {
             return 0;

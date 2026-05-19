@@ -3,6 +3,7 @@ package de.Roboter007.interactiveFluids.ticker.collision;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.metrics.metric.HistoricMetric;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.universe.Universe;
@@ -18,6 +19,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class FluidCollisionManager {
+
+    private static final int MAX_COLLISIONS_PER_TICK = 5000;
 
     private static final ConcurrentHashMap<String, List<PendingChange>> QUEUES = new ConcurrentHashMap<>();
 
@@ -101,18 +104,16 @@ public final class FluidCollisionManager {
                     FluidSection fluidSection = store.ensureAndGetComponent(sectionRef, FluidSection.getComponentType());
 
                     Fluid fluid = this.resultType.getFluid();
-                    if (fluid == null || this.resultType.getFluidLevel() == Byte.MIN_VALUE) {
+                    byte fluidLevel = fluidSection.getFluidLevel(x, y, z);
+
+                    if (fluid == null || this.resultType.getFluidLevel(fluidLevel) == Byte.MIN_VALUE) {
                         return false;
                     }
 
-                    boolean placed = fluidSection.setFluid(this.x, this.y, this.z, fluid, this.resultType.getFluidLevel());
+                    boolean placed = fluidSection.setFluid(this.x, this.y, this.z, fluid, this.resultType.getFluidLevel(fluidLevel));
 
                     if (placed) {
                         chunk.setBlock(this.x, this.y, this.z, BlockType.EMPTY_ID, BlockType.EMPTY, 0, 0, 0);
-
-                        chunk.setTicking(this.x, this.y, this.z, true);
-                        world.performBlockUpdate(this.x, this.y, this.z);
-                        chunk.markNeedsSaving();
                         return true;
                     } else {
                         return false;
@@ -167,43 +168,61 @@ public final class FluidCollisionManager {
         QUEUES.computeIfAbsent(worldKey, _ -> Collections.synchronizedList(new ArrayList<>())).add(change);
     }
 
+    private static int getCollisionLimit(World world) {
+        HistoricMetric metric = world.getBufferedTickLengthMetricSet();
+        long[] periods = metric.getPeriodsNanos();
+
+        if (periods.length == 0) {
+            return MAX_COLLISIONS_PER_TICK;
+        }
+
+        int periodIndex = 0; // kürzester Zeitraum, meist die beste Reaktion auf aktuelle Last
+        double avgTickMs = metric.getAverage(periodIndex) / 1_000_000.0;
+
+        if (avgTickMs < 40.0) {
+            return MAX_COLLISIONS_PER_TICK;
+        }
+        if (avgTickMs < 50.0) {
+            return 3000;
+        }
+        if (avgTickMs < 75.0) {
+            return 1000;
+        }
+        return 250;
+    }
+
     public static void tick(@Nonnull World world, long currentTick) {
         List<PendingChange> queue = QUEUES.get(worldKey(world));
         if (queue != null && !queue.isEmpty()) {
-            //synchronized (queue) {
-                world.execute(() -> {
-                    List<PendingChange> currentChanges = new ArrayList<>(queue);
+            synchronized (queue) {
+                List<PendingChange> currentChanges = new ArrayList<>(queue);
 
-                    for (PendingChange change : currentChanges) {
-                        if (change.isStillExpectedAsset(world)) {
-                            if (change.canPlace(currentTick)) {
-                                if (change.place(world)) {
-                                    tickSurrounding(world, change.x, change.y, change.z);
-                                }
-                                queue.remove(change);
-                            } else if (change.showBreakAnimation) {
-                                change.updateBreakAnimation(world, currentTick);
-                            }
-                        } else {
-                            queue.remove(change);
-                        }
+
+                int maxCollisions = getCollisionLimit(world);
+
+                for (int i = 0; i < maxCollisions; i++) {
+                    if(i >= currentChanges.size()) {
+                        break;
                     }
-                });
-            //
-            // }
+
+                    PendingChange change = currentChanges.get(i);
+                    if (change.isStillExpectedAsset(world)) {
+                        if (change.canPlace(currentTick)) {
+                            if (change.place(world)) {
+                                tickSurrounding(world, change.x, change.y, change.z);
+                            }
+                            queue.remove(change);
+                        } else if (change.showBreakAnimation) {
+                            change.updateBreakAnimation(world, currentTick);
+                        }
+                    } else {
+                        queue.remove(change);
+                    }
+                }
+
+            }
         }
     }
-
-    public static void clear(@Nonnull World world) {
-        QUEUES.remove(worldKey(world));
-    }
-
-
-    private static boolean isSubmerged(@Nonnull World world, int x, int y, int z) {
-        int fluidId = world.getFluidId(x, y, z);
-        return fluidId != 0 && fluidId != Integer.MIN_VALUE;
-    }
-
 
     private static void tickSurrounding(@Nonnull World world, int blockX, int blockY, int blockZ) {
         for (int dy = -1; dy <= 1; dy++) {

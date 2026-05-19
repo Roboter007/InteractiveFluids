@@ -272,7 +272,7 @@ public class InteractiveFluidTicker extends FluidTicker {
 
             boolean isDifferentSection = !ChunkUtil.isSameChunkSection(worldX, worldY, worldZ, blockX, blockY, blockZ);
             BlockSection otherBlockSection = isDifferentSection ? accessor.getBlockSectionByBlock(blockX, blockY, blockZ) : blockSection;
-            FluidSection otherFluidSection = isDifferentSection ? accessor.getFluidSectionByBlock(blockX, worldY, blockZ) : fluidSection;
+            FluidSection otherFluidSection = isDifferentSection ? accessor.getFluidSectionByBlock(blockX, blockY, blockZ) : fluidSection;
 
             if (otherBlockSection == null || otherFluidSection == null) {
                 return BlockTickStrategy.WAIT_FOR_ADJACENT_CHUNK_LOAD;
@@ -304,7 +304,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                             }
 
                         } else {
-                            executeCollision(world, fluidId, config, otherBlockSection, fluidSection, blockX, blockY, blockZ);
+                            executeCollision(world, fluidId, config, otherBlockSection, otherFluidSection, blockX, blockY, blockZ);
                         }
                     }
                 }
@@ -317,7 +317,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                     CollisionConfigEntry configEntry = collisionMap.get(fluidName);
 
                     if (configEntry != null) {
-                        executeCollision(world, fluidId, configEntry, otherBlockSection, fluidSection, blockX, blockY, blockZ);
+                        executeCollision(world, fluidId, configEntry, otherBlockSection, otherFluidSection, blockX, blockY, blockZ);
                     }
                 }
             }
