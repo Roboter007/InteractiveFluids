@@ -176,19 +176,19 @@ public final class FluidCollisionManager {
             return MAX_COLLISIONS_PER_TICK;
         }
 
-        int periodIndex = 0; // kürzester Zeitraum, meist die beste Reaktion auf aktuelle Last
+        int periodIndex = 0;
         double avgTickMs = metric.getAverage(periodIndex) / 1_000_000.0;
 
         if (avgTickMs < 40.0) {
             return MAX_COLLISIONS_PER_TICK;
         }
         if (avgTickMs < 50.0) {
-            return 500;
+            return MAX_COLLISIONS_PER_TICK / 2;
         }
         if (avgTickMs < 75.0) {
-            return 250;
+            return MAX_COLLISIONS_PER_TICK / 4;
         }
-        return 100;
+        return MAX_COLLISIONS_PER_TICK / 10;
     }
 
     public static void tick(@Nonnull World world, long currentTick) {
