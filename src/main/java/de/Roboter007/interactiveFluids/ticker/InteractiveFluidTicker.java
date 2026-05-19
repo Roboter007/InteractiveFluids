@@ -179,21 +179,21 @@ public class InteractiveFluidTicker extends FluidTicker {
                                 int rotationIndex = otherBlockSection.getRotationIndex(blockX, worldY, blockZ);
                                 int destFiller = otherBlockSection.getFiller(blockX, worldY, blockZ);
 
-                                int otherFluidId = otherFluidSection.getFluidId(blockX, worldY, blockZ);
-                                Fluid otherFluid = FLUID_MAP.getAsset(otherFluidId);
-
-
-                                boolean fluidCollision = otherFluidId != 0 && otherFluidId != spreadFluidId;
-                                boolean blockCollision = block != null && !block.getId().equals("Empty");
-
-                                if (fluidCollision || blockCollision) {
-                                    CollisionConfigEntry entry = getCollisionEntry(flowPhase, otherFluid, block);
-                                    if (entry == null || entry.placeFluid()) {
-                                        continue;
-                                    }
-                                }
 
                                 if (block != null && !this.blocksFluidFrom(block, rotationIndex, x, z, destFiller)) {
+                                    int otherFluidId = otherFluidSection.getFluidId(blockX, worldY, blockZ);
+                                    Fluid otherFluid = FLUID_MAP.getAsset(otherFluidId);
+
+                                    boolean fluidCollision = otherFluidId != 0 && otherFluidId != spreadFluidId;
+                                    boolean blockCollision = !block.getId().equals("Empty");
+
+                                    if (fluidCollision || blockCollision) {
+                                        CollisionConfigEntry entry = getCollisionEntry(flowPhase, otherFluid, block);
+                                        if (entry == null || !entry.placeFluid()) {
+                                            continue;
+                                        }
+                                    }
+
                                     byte fillLevel = otherFluidSection.getFluidLevel(blockX, worldY, blockZ);
                                     if (otherFluidId != spreadFluidId || fillLevel < childFillLevel) {
                                         if (childFillLevel == 0) {
@@ -261,6 +261,8 @@ public class InteractiveFluidTicker extends FluidTicker {
     }
 
 
+    //ToDo: Fix the placement of for instance water in lava and lava in water -> some how the fluid gets replaced by the other one
+    //ToDo: Fix scufft ghost results are appearing, example: Lava flows over Water
     @Nullable
     public BlockTickStrategy handleCollisions(FlowPhase flowPhase, int fluidId, World world, int worldX, int worldY, int worldZ, Accessor accessor, BlockSection blockSection, FluidSection fluidSection) {
         for (Vector3i vector3i : getNeighborBlockPos()) {

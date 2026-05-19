@@ -81,7 +81,7 @@ public final class FluidCollisionManager {
             WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
 
             if (chunk != null) {
-                if(resultType.isBlock()) {
+                if (resultType.isBlock()) {
                     int resultId = this.resultType.getId();
                     int rotation = world.getBlockRotationIndex(this.x, this.y, this.z);
 
@@ -130,7 +130,7 @@ public final class FluidCollisionManager {
                 return block != null && block.getId().equals(sourceType.getName());
             } else if (sourceType.isFluid()) {
                 int fluidId = world.getFluidId(this.x, this.y, this.z);
-                return fluidId != Integer.MIN_VALUE && fluidId == sourceType.getId();
+                return fluidId > 0 && fluidId == sourceType.getId();
             } else {
                 throw new RuntimeException("Invalid State for Source Type!");
             }
@@ -170,24 +170,27 @@ public final class FluidCollisionManager {
     public static void tick(@Nonnull World world, long currentTick) {
         List<PendingChange> queue = QUEUES.get(worldKey(world));
         if (queue != null && !queue.isEmpty()) {
-            synchronized (queue) {
-                List<PendingChange> currentChanges = new ArrayList<>(queue);
+            //synchronized (queue) {
+                world.execute(() -> {
+                    List<PendingChange> currentChanges = new ArrayList<>(queue);
 
-                for (PendingChange change : currentChanges) {
-                    if (change.isStillExpectedAsset(world)) {
-                        if (change.canPlace(currentTick)) {
-                            if (change.place(world)) {
-                                tickSurrounding(world, change.x, change.y, change.z);
+                    for (PendingChange change : currentChanges) {
+                        if (change.isStillExpectedAsset(world)) {
+                            if (change.canPlace(currentTick)) {
+                                if (change.place(world)) {
+                                    tickSurrounding(world, change.x, change.y, change.z);
+                                }
+                                queue.remove(change);
+                            } else if (change.showBreakAnimation) {
+                                change.updateBreakAnimation(world, currentTick);
                             }
+                        } else {
                             queue.remove(change);
-                        } else if (change.showBreakAnimation) {
-                            change.updateBreakAnimation(world, currentTick);
                         }
-                    } else {
-                        queue.remove(change);
                     }
-                }
-            }
+                });
+            //
+            // }
         }
     }
 

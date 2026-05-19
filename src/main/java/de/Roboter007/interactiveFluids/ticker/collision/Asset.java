@@ -5,6 +5,8 @@ import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 
 public class Asset {
 
+    private final AssetType assetType;
+
     private final int id;
     private final String name;
 
@@ -23,6 +25,7 @@ public class Asset {
         this.id = Fluid.getFluidIdOrUnknown(name, "Couldn't find the fluid asset: " + name, name);
         this.fluidLevel = fluidLevel;
         this.blockType = null;
+        this.assetType = AssetType.Fluid;
     }
 
     public Asset(BlockType blockType) {
@@ -31,6 +34,7 @@ public class Asset {
         this.id = BlockType.getBlockIdOrUnknown(name, "Couldn't find the block asset: " + name, name);
         this.fluid = null;
         this.fluidLevel = Byte.MIN_VALUE;
+        this.assetType = AssetType.Block;
     }
 
     public byte getFluidLevel() {
@@ -54,11 +58,11 @@ public class Asset {
     }
 
     public boolean isBlock() {
-        return blockType != null;
+        return assetType == AssetType.Block && blockType != null;
     }
 
     public boolean isFluid() {
-        return fluid != null;
+        return assetType == AssetType.Fluid && fluid != null;
     }
 
     public BlockType getBlockType() {
@@ -67,5 +71,9 @@ public class Asset {
 
     public Fluid getFluid() {
         return fluid;
+    }
+
+    public AssetType getAssetType() {
+        return assetType;
     }
 }
