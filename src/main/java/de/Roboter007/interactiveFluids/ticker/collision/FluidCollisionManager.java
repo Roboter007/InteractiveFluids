@@ -126,8 +126,14 @@ public final class FluidCollisionManager {
         }
 
         public boolean isStillExpectedAsset(World world) {
+            long chunkIndex = ChunkUtil.indexChunkFromBlock(this.x, this.z);
+            WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
+            if (chunk == null) {
+                return false;
+            }
+
             if(sourceType.isBlock()) {
-                BlockType block = world.getBlockType(this.x, this.y, this.z);
+                BlockType block = chunk.getBlockType(this.x, this.y, this.z);
                 return block != null && block.getId().equals(sourceType.getName());
             } else if (sourceType.isFluid()) {
                 int fluidId = world.getFluidId(this.x, this.y, this.z);
