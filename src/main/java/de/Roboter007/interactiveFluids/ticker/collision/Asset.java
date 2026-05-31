@@ -78,4 +78,9 @@ public class Asset {
     public AssetType getAssetType() {
         return assetType;
     }
+
+    private enum AssetType {
+        Block,
+        Fluid
+    }
 }

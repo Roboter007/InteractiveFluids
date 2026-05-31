@@ -8,9 +8,7 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.codec.codecs.map.MapCodec;
 import com.hypixel.hytale.common.util.MapUtil;
 import com.hypixel.hytale.math.util.ChunkUtil;
-import com.hypixel.hytale.math.vector.Vector2i;
-import com.hypixel.hytale.math.vector.Vector3i;
-import com.hypixel.hytale.protocol.*;
+import com.hypixel.hytale.protocol.DrawType;
 import com.hypixel.hytale.server.core.asset.type.blockhitbox.BlockBoundingBoxes;
 import com.hypixel.hytale.server.core.asset.type.blocktick.BlockTickStrategy;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
@@ -20,18 +18,19 @@ import com.hypixel.hytale.server.core.asset.type.fluid.FluidTicker;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
+import de.Roboter007.interactiveFluids.ticker.collision.Asset;
+import de.Roboter007.interactiveFluids.ticker.collision.CollisionManager;
 import de.Roboter007.interactiveFluids.ticker.collision.config.CollisionConfigEntry;
 import de.Roboter007.interactiveFluids.ticker.collision.config.CollisionConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.config.CollisionResultConfig;
 import de.Roboter007.interactiveFluids.ticker.collision.config.CollisionSourceConfig;
-import de.Roboter007.interactiveFluids.ticker.collision.AssetType;
 import de.Roboter007.interactiveFluids.ticker.fluidblocking.FluidBlockingBlockConfigEntry;
-import de.Roboter007.interactiveFluids.ticker.collision.FluidCollisionManager;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowShapeConfig;
 import de.Roboter007.interactiveFluids.ticker.utils.IFOperators;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import org.jetbrains.annotations.NotNull;
+import org.joml.Vector2i;
+import org.joml.Vector3i;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,7 +69,7 @@ public class InteractiveFluidTicker extends FluidTicker {
         return collisionConfig;
     }
 
-    @NotNull
+    @Nonnull
     public Map<String, FluidBlockingBlockConfigEntry> fluidBlockingBlocks() {
         if(fluidBlockingBlocks == null) {
             this.fluidBlockingBlocks = Collections.emptyMap();
@@ -160,7 +159,7 @@ public class InteractiveFluidTicker extends FluidTicker {
 
                     for (int i = 0; i < ORTO_OFFSETS.length; i++) {
                         if (offsets == 0 || (offsets & 1 << i) != 0) {
-                            Vector2i offset = ORTO_OFFSETS[i];
+                            Vector2i offset = FluidTicker.ORTO_OFFSETS[i];
                             int x = offset.x;
                             int z = offset.y;
                             int blockX = worldX + x;
@@ -245,7 +244,7 @@ public class InteractiveFluidTicker extends FluidTicker {
                 config = null;
             } else {
                 config = collisionMap.get(IFOperators.ALL_FROM_CURRENT_ASSET_TYPE);
-                if (config.getSourceConfig().getAssetType() == AssetType.Fluid) {
+                if (config.getSourceConfig().getAssetType() == CollisionSourceConfig.SourceAssetType.Fluid) {
                     config = null;
                 }
             }
@@ -261,8 +260,6 @@ public class InteractiveFluidTicker extends FluidTicker {
     }
 
 
-    //ToDo: Fix the placement of for instance water in lava and lava in water -> some how the fluid gets replaced by the other one
-    //ToDo: Fix scufft ghost results are appearing, example: Lava flows over Water
     @Nullable
     public BlockTickStrategy handleCollisions(FlowPhase flowPhase, int fluidId, World world, int worldX, int worldY, int worldZ, Accessor accessor, BlockSection blockSection, FluidSection fluidSection) {
         for (Vector3i vector3i : getNeighborBlockPos()) {
@@ -349,24 +346,26 @@ public class InteractiveFluidTicker extends FluidTicker {
         CollisionSourceConfig sourceConfig = config.getSourceConfig();
         CollisionResultConfig resultConfig = config.getResultConfig();
 
-        if(sourceConfig.getAssetType() == AssetType.Block) {
+        if(sourceConfig.getAssetType() == CollisionSourceConfig.SourceAssetType.Block) {
             BlockType sourceType = BLOCK_MAP.getAsset(blockSection.get(blockX, blockY, blockZ));
             if(sourceType != null) {
 
-                if (resultConfig.getAssetType() == AssetType.Block) {
+                if (resultConfig.getAssetType() == CollisionResultConfig.ResultAssetType.Block) {
                     BlockType resultBlock = BlockType.getAssetMap().getAsset(resultConfig.getAssetID());
 
                     if (resultBlock != null && !resultConfig.getBlockState().isEmpty()) {
                         resultBlock = resultBlock.getBlockForState(resultConfig.getBlockState());
                     }
                     if (resultBlock != null) {
-                        FluidCollisionManager.addDelayedBlockToBlock(world, blockX, blockY, blockZ, sourceType, resultBlock, fluidId, config.getPlaceDelay(), config.useBreakAnimation());
+                        CollisionManager.CollisionInfo collisionInfo = new CollisionManager.CollisionInfo(blockX, blockY, blockZ, new Asset(sourceType), new Asset(resultBlock), config.getPlaceDelay(), config.useBreakAnimation());
+                        CollisionManager.addDelayedCollision(world, collisionInfo);
                     }
-                } else {
+                } else if(resultConfig.getAssetType() == CollisionResultConfig.ResultAssetType.Fluid) {
                     Fluid resultFluid = Fluid.getAssetMap().getAsset(resultConfig.getAssetID());
 
                     if (resultFluid != null) {
-                        FluidCollisionManager.addDelayedBlockToFluid(world, blockX, blockY, blockZ, sourceType, resultFluid, resultConfig.getFluidLevel(), fluidId, config.getPlaceDelay(), config.useBreakAnimation());
+                        CollisionManager.CollisionInfo collisionInfo = new CollisionManager.CollisionInfo(blockX, blockY, blockZ, new Asset(sourceType), new Asset(resultFluid, resultConfig.getFluidLevel()), config.getPlaceDelay(), config.useBreakAnimation());
+                        CollisionManager.addDelayedCollision(world, collisionInfo);
                     }
                 }
             }
@@ -374,7 +373,7 @@ public class InteractiveFluidTicker extends FluidTicker {
             Fluid sourceType = fluidSection.getFluid(blockX, blockY, blockZ);
 
             if(sourceType != null) {
-                if (resultConfig.getAssetType() == AssetType.Block) {
+                if (resultConfig.getAssetType() == CollisionResultConfig.ResultAssetType.Block) {
                     BlockType resultBlock = BLOCK_MAP.getAsset(resultConfig.getAssetID());
 
                     if (resultBlock != null && !resultConfig.getBlockState().isEmpty()) {
@@ -382,13 +381,15 @@ public class InteractiveFluidTicker extends FluidTicker {
                     }
 
                     if(resultBlock != null) {
-                        FluidCollisionManager.addDelayedFluidToBlock(world, blockX, blockY, blockZ, sourceType, resultBlock, fluidId, config.getPlaceDelay());
+                        CollisionManager.CollisionInfo collisionInfo = new CollisionManager.CollisionInfo(blockX, blockY, blockZ, new Asset(sourceType), new Asset(resultBlock), config.getPlaceDelay());
+                        CollisionManager.addDelayedCollision(world, collisionInfo);
                     }
-                } else {
+                } else if(resultConfig.getAssetType() == CollisionResultConfig.ResultAssetType.Fluid) {
                     Fluid resultFluid = FLUID_MAP.getAsset(resultConfig.getAssetID());
 
                     if(resultFluid != null) {
-                        FluidCollisionManager.addDelayedFluidToFluid(world, blockX, blockY, blockZ, sourceType, resultFluid, resultConfig.getFluidLevel(), fluidId, config.getPlaceDelay());
+                        CollisionManager.CollisionInfo collisionInfo = new CollisionManager.CollisionInfo(blockX, blockY, blockZ, new Asset(sourceType), new Asset(resultFluid, resultConfig.getFluidLevel()), config.getPlaceDelay());
+                        CollisionManager.addDelayedCollision(world, collisionInfo);
                     }
                 }
             }
@@ -433,7 +434,7 @@ public class InteractiveFluidTicker extends FluidTicker {
     }
 
     @Override
-    public boolean blocksFluidFrom(@NotNull BlockType blockType, int rotationIndex, int offsetX, int offsetZ, int filler) {
+    public boolean blocksFluidFrom(@Nonnull BlockType blockType, int rotationIndex, int offsetX, int offsetZ, int filler) {
         if(fluidBlockingBlocks != null) {
             if (fluidBlockingBlocks.containsKey(IFOperators.ANYTHING)) {
                 FluidBlockingBlockConfigEntry entry = fluidBlockingBlocks.get(IFOperators.ANYTHING);

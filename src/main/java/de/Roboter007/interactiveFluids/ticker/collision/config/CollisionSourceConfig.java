@@ -10,7 +10,6 @@ import com.hypixel.hytale.codec.schema.config.StringSchema;
 import com.hypixel.hytale.codec.schema.metadata.Metadata;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
-import de.Roboter007.interactiveFluids.ticker.collision.AssetType;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -23,7 +22,7 @@ public class CollisionSourceConfig {
 
     public static final BuilderCodec<CollisionSourceConfig> CODEC;
 
-    protected AssetType assetType = AssetType.Block;
+    protected SourceAssetType assetType = SourceAssetType.Block;
     protected String assetID = "Empty";
     protected String blockState = "";
 
@@ -31,16 +30,16 @@ public class CollisionSourceConfig {
 
     public int getId() {
         if (id == Integer.MIN_VALUE) {
-            if (assetType == AssetType.Block) {
+            if (assetType == SourceAssetType.Block) {
                 id = BlockType.getBlockIdOrUnknown(this.assetID, "Unknown block type %s", this.assetID);
-            } else if (assetType == AssetType.Fluid) {
+            } else if (assetType == SourceAssetType.Fluid) {
                 id = Fluid.getFluidIdOrUnknown(this.assetID, "Unknown fluid %s", this.assetID);
             }
         }
         return id;
     }
 
-    public AssetType getAssetType() {
+    public SourceAssetType getAssetType() {
         return assetType;
     }
 
@@ -49,12 +48,12 @@ public class CollisionSourceConfig {
     }
 
     public String getBlockState() {
-        return assetType == AssetType.Block ? blockState : "";
+        return assetType == SourceAssetType.Block ? blockState : "";
     }
 
     static {
-        FLUID_CODEC = buildCodec(AssetType.Fluid);
-        BLOCK_CODEC = buildCodec(AssetType.Block);
+        FLUID_CODEC = buildCodec(SourceAssetType.Fluid);
+        BLOCK_CODEC = buildCodec(SourceAssetType.Block);
         BASE_CODEC = BLOCK_CODEC;
         CODEC = BLOCK_CODEC;
     }
@@ -69,9 +68,9 @@ public class CollisionSourceConfig {
                 '}';
     }
 
-    private static BuilderCodec<CollisionSourceConfig> buildCodec(AssetType assetType) {
+    private static BuilderCodec<CollisionSourceConfig> buildCodec(SourceAssetType assetType) {
         BuilderCodec.Builder<CollisionSourceConfig> builder = BuilderCodec.builder(CollisionSourceConfig.class, CollisionSourceConfig::new)
-                .appendInherited(new KeyedCodec<>("AssetType", new EnumCodec<>(AssetType.class)),
+                .appendInherited(new KeyedCodec<>("AssetType", new EnumCodec<>(SourceAssetType.class)),
                         (o, v) -> o.assetType = v,
                         o -> o.assetType,
                         (o, p) -> o.assetType = p.assetType)
@@ -85,7 +84,7 @@ public class CollisionSourceConfig {
                 .documentation("The asset (block or fluid) that is needed in order to result in a collision.")
                 .add();
 
-        if (assetType == AssetType.Block) {
+        if (assetType == SourceAssetType.Block) {
             builder.appendInherited(new KeyedCodec<>("BlockState", Codec.STRING),
                             (o, v) -> o.blockState = v,
                             o -> o.blockState,
@@ -98,7 +97,7 @@ public class CollisionSourceConfig {
 
         builder.afterDecode((asset, _) -> {
             asset.id = Integer.MIN_VALUE;
-            if (asset.assetType != AssetType.Block) {
+            if (asset.assetType != SourceAssetType.Block) {
                 asset.blockState = "";
             }
         });
@@ -154,5 +153,9 @@ public class CollisionSourceConfig {
             Objects.requireNonNull(root.getHytale()).setMergesProperties(true);
             root.setHytaleSchemaTypeField(new Schema.SchemaTypeField("AssetType", "Block", "Block", "Fluid"));
         }
+    }
+    public enum SourceAssetType {
+        Block,
+        Fluid
     }
 }

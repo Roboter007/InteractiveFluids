@@ -6,7 +6,6 @@ import com.hypixel.hytale.codec.codecs.map.MapCodec;
 import com.hypixel.hytale.common.util.MapUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
-import de.Roboter007.interactiveFluids.ticker.collision.AssetType;
 import de.Roboter007.interactiveFluids.ticker.flowShape.FlowPhase;
 import de.Roboter007.interactiveFluids.ticker.utils.IFOperators;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
@@ -52,7 +51,7 @@ public class CollisionConfig {
                     continue;
                 }
 
-                if(sourceConfig.getAssetType() == AssetType.Block) {
+                if(sourceConfig.getAssetType() == CollisionSourceConfig.SourceAssetType.Block) {
                     BlockType block = BlockType.getAssetMap().getAsset(name);
 
                     if (block != null) {
@@ -107,7 +106,7 @@ public class CollisionConfig {
             }
 
             if (source.assetID.equals(IFOperators.ANYTHING) || source.assetID.equals(assetId)) {
-                if(source.getAssetType() == AssetType.Block) {
+                if(source.getAssetType() == CollisionSourceConfig.SourceAssetType.Block) {
                     if(blockState != null) {
                         String requiredState = source.blockState;
                         if (requiredState != null && !requiredState.isEmpty()) {

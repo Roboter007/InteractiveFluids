@@ -3,19 +3,7 @@ package de.Roboter007.interactiveFluids.ticker.collision.config;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
-import com.hypixel.hytale.codec.schema.config.ObjectSchema;
-import com.hypixel.hytale.codec.schema.config.Schema;
-import com.hypixel.hytale.codec.schema.config.StringSchema;
-import com.hypixel.hytale.codec.schema.metadata.Metadata;
-import com.hypixel.hytale.codec.schema.metadata.ui.UIDisplayMode;
-import com.hypixel.hytale.codec.validation.ValidationResults;
 import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
-import de.Roboter007.interactiveFluids.ticker.collision.AssetType;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 public class CollisionConfigEntry {
     public static final BuilderCodec<CollisionConfigEntry> CODEC;

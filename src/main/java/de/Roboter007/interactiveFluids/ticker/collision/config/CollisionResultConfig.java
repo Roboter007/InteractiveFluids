@@ -8,7 +8,6 @@ import com.hypixel.hytale.codec.schema.config.ObjectSchema;
 import com.hypixel.hytale.codec.schema.config.Schema;
 import com.hypixel.hytale.codec.schema.config.StringSchema;
 import com.hypixel.hytale.codec.schema.metadata.Metadata;
-import de.Roboter007.interactiveFluids.ticker.collision.AssetType;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -17,14 +16,14 @@ import java.util.Objects;
 public class CollisionResultConfig {
     public static final BuilderCodec<CollisionResultConfig> CODEC;
 
-    protected AssetType assetType = AssetType.Block;
+    protected ResultAssetType assetType = ResultAssetType.Block;
     protected String assetID = "Empty";
     private int id = Integer.MIN_VALUE;
 
     protected String blockState = "";
     protected byte fluidLevel = Byte.MIN_VALUE;
 
-    public AssetType getAssetType() {
+    public ResultAssetType getAssetType() {
         return assetType;
     }
 
@@ -33,11 +32,11 @@ public class CollisionResultConfig {
     }
 
     public String getBlockState() {
-        return assetType == AssetType.Block ? blockState : "";
+        return assetType == ResultAssetType.Block ? blockState : "";
     }
 
     public byte getFluidLevel() {
-        return assetType == AssetType.Fluid ? fluidLevel : Byte.MIN_VALUE;
+        return assetType == ResultAssetType.Fluid ? fluidLevel : Byte.MIN_VALUE;
     }
 
     public String getBlockToPlace() {
@@ -46,7 +45,7 @@ public class CollisionResultConfig {
 
     static {
         CODEC = BuilderCodec.builder(CollisionResultConfig.class, CollisionResultConfig::new)
-                .appendInherited(new KeyedCodec<>("AssetType", new EnumCodec<>(AssetType.class)), (o, v) -> o.assetType = v, o -> o.assetType, (o, p) -> o.assetType = p.assetType).documentation("Defines what type of asset gets placed.").add()
+                .appendInherited(new KeyedCodec<>("AssetType", new EnumCodec<>(ResultAssetType.class)), (o, v) -> o.assetType = v, o -> o.assetType, (o, p) -> o.assetType = p.assetType).documentation("Defines what type of asset gets placed.").add()
                 .appendInherited(new KeyedCodec<>("AssetId", Codec.STRING), (o, v) -> o.assetID = v, o -> o.assetID, (o, p) -> o.assetID = p.assetID).documentation("The asset (block or fluid) to place when a collision occurs.").add()
                 .appendInherited(new KeyedCodec<>("BlockState", Codec.STRING), (o, v) -> o.blockState = v, o -> o.blockState, (o, p) -> o.blockState = p.blockState).documentation("The block state of the block that gets placed.").add()
                 .appendInherited(new KeyedCodec<>("FluidLevel", Codec.BYTE), (o, v) -> o.fluidLevel = v, o -> o.fluidLevel, (o, p) -> o.fluidLevel = p.fluidLevel).documentation("The fluid level of the fluid that gets placed.").add()
@@ -54,10 +53,10 @@ public class CollisionResultConfig {
 
                 .afterDecode((asset, _) -> {
                     asset.id = Integer.MIN_VALUE;
-                    if (asset.assetType != AssetType.Block) {
+                    if (asset.assetType != ResultAssetType.Block) {
                         asset.blockState = "";
                     }
-                    if (asset.assetType != AssetType.Fluid) {
+                    if (asset.assetType != ResultAssetType.Fluid) {
                         asset.fluidLevel = Byte.MIN_VALUE;
                     }
                 })
@@ -126,5 +125,10 @@ public class CollisionResultConfig {
             Objects.requireNonNull(root.getHytale()).setMergesProperties(true);
             root.setHytaleSchemaTypeField(new Schema.SchemaTypeField("AssetType", "Block", "Block", "Fluid"));
         }
+    }
+
+    public enum ResultAssetType {
+        Block,
+        Fluid
     }
 }
