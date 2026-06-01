@@ -11,6 +11,7 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
+import de.Roboter007.interactiveFluids.ticker.api.CollisionHookRegistry;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
@@ -92,7 +93,11 @@ public final class CollisionManager {
 
                     this.clearBreakAnimation(world);
 
-                    return chunk.setBlock(x, y, z, resultId, collisionInfo.result().getBlockType(), rotation, 0, 0);
+                    boolean placed = chunk.setBlock(x, y, z, resultId, collisionInfo.result().getBlockType(), rotation, 0, 0);
+                    if(placed) {
+                        CollisionHookRegistry.hook(world, collisionInfo);
+                    }
+
                 } else if (collisionInfo.result().isFluid()) {
                     this.clearBreakAnimation(world);
 

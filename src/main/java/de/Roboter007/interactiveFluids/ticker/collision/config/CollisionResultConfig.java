@@ -4,14 +4,14 @@ import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.codec.codecs.EnumCodec;
+import com.hypixel.hytale.codec.codecs.map.MapCodec;
 import com.hypixel.hytale.codec.schema.config.ObjectSchema;
 import com.hypixel.hytale.codec.schema.config.Schema;
 import com.hypixel.hytale.codec.schema.config.StringSchema;
 import com.hypixel.hytale.codec.schema.metadata.Metadata;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
+import javax.annotation.Nonnull;
+import java.util.*;
 
 public class CollisionResultConfig {
     public static final BuilderCodec<CollisionResultConfig> CODEC;
@@ -21,6 +21,8 @@ public class CollisionResultConfig {
     private int id = Integer.MIN_VALUE;
 
     protected String blockState = "";
+    protected Map<String, String> blockProperties = Collections.emptyMap();
+
     protected byte fluidLevel = Byte.MIN_VALUE;
 
     public ResultAssetType getAssetType() {
@@ -39,6 +41,14 @@ public class CollisionResultConfig {
         return assetType == ResultAssetType.Fluid ? fluidLevel : Byte.MIN_VALUE;
     }
 
+    @Nonnull
+    public Map<String, String> getBlockProperties() {
+        if (assetType != ResultAssetType.Block) {
+            return Collections.emptyMap();
+        }
+        return blockProperties != null ? blockProperties : Collections.emptyMap();
+    }
+
     public String getBlockToPlace() {
         return assetID;
     }
@@ -49,6 +59,7 @@ public class CollisionResultConfig {
                 .appendInherited(new KeyedCodec<>("AssetId", Codec.STRING), (o, v) -> o.assetID = v, o -> o.assetID, (o, p) -> o.assetID = p.assetID).documentation("The asset (block or fluid) to place when a collision occurs.").add()
                 .appendInherited(new KeyedCodec<>("BlockState", Codec.STRING), (o, v) -> o.blockState = v, o -> o.blockState, (o, p) -> o.blockState = p.blockState).documentation("The block state of the block that gets placed.").add()
                 .appendInherited(new KeyedCodec<>("FluidLevel", Codec.BYTE), (o, v) -> o.fluidLevel = v, o -> o.fluidLevel, (o, p) -> o.fluidLevel = p.fluidLevel).documentation("The fluid level of the fluid that gets placed.").add()
+                .appendInherited(new KeyedCodec<>("BlockProperties", new MapCodec<>(Codec.STRING, HashMap::new)), (o, v) -> o.blockProperties = v, o -> o.blockProperties, (o, p) -> o.blockProperties = p.blockProperties).documentation("Optional block-specific properties passed to a registered CollisionHook by an addon").add()
                 .metadata(new AssetVariantSchemaMetadata())
 
                 .afterDecode((asset, _) -> {
@@ -58,6 +69,9 @@ public class CollisionResultConfig {
                     }
                     if (asset.assetType != ResultAssetType.Fluid) {
                         asset.fluidLevel = Byte.MIN_VALUE;
+                    }
+                    if (asset.blockProperties == null) {
+                        asset.blockProperties = Collections.emptyMap();
                     }
                 })
                 .build();
@@ -91,8 +105,9 @@ public class CollisionResultConfig {
             Schema assetIdSchema = originalProps.get("AssetId");
             Schema blockStateSchema = originalProps.get("BlockState");
             Schema fluidLevelSchema = originalProps.get("FluidLevel");
+            Schema blockPropsSchema = originalProps.get("BlockProperties");
 
-            if (assetTypeSchema == null || assetIdSchema == null || blockStateSchema == null || fluidLevelSchema == null) {
+            if (assetTypeSchema == null || assetIdSchema == null || blockStateSchema == null || fluidLevelSchema == null || blockPropsSchema == null) {
                 return;
             }
 
@@ -105,6 +120,7 @@ public class CollisionResultConfig {
             blockProps.put("AssetType", StringSchema.constant("Block"));
             blockProps.put("AssetId", assetIdSchema);
             blockProps.put("BlockState", blockStateSchema);
+            blockProps.put("BlockProperties", blockPropsSchema);
             blockSchema.setProperties(blockProps);
             blockSchema.setRequired("AssetType");
 
