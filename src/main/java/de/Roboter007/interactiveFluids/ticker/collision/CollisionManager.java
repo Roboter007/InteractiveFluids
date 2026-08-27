@@ -2,13 +2,13 @@ package de.Roboter007.interactiveFluids.ticker.collision;
 
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
-import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.metrics.metric.HistoricMetric;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.BlockOperations;
+import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import de.Roboter007.interactiveFluids.ticker.api.CollisionHookRegistry;
@@ -82,30 +82,24 @@ public final class CollisionManager {
             int y = collisionInfo.y();
             int z = collisionInfo.z();
 
+            ChunkStore chunkStore = world.getChunkStore();
+            Ref<ChunkStore> sectionRef = chunkStore.getChunkSectionReferenceAtBlock(x, y, z);
 
-            long chunkIndex = ChunkUtil.indexChunkFromBlock(x, z);
-            WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
-
-            if (chunk != null) {
+            if (sectionRef != null) {
                 if (collisionInfo.result().isBlock()) {
                     int resultId = collisionInfo.result().getId();
-                    int rotation = world.getBlockRotationIndex(x, y, z);
+                    BlockSection blockSection = chunkStore.getStore().ensureAndGetComponent(sectionRef, BlockSection.getComponentType());
+
+                    int rotation = blockSection.getRotationIndex(x, y, z);
 
                     this.clearBreakAnimation(world);
 
-                    boolean placed = chunk.setBlock(x, y, z, resultId, collisionInfo.result().getBlockType(), rotation, 0, 0);
-                    if(placed) {
+                    boolean placed = BlockOperations.setBlock(chunkStore, sectionRef, x, y, z, resultId, collisionInfo.result().getBlockType(), rotation, 0, 0);
+                    if (placed) {
                         CollisionHookRegistry.hook(world, collisionInfo);
                     }
-
                 } else if (collisionInfo.result().isFluid()) {
                     this.clearBreakAnimation(world);
-
-                    Ref<ChunkStore> sectionRef = world.getChunkStore().getChunkSectionReferenceAtBlock(x, y, z);
-
-                    if (sectionRef == null) {
-                        return false;
-                    }
 
                     Store<ChunkStore> store = sectionRef.getStore();
                     FluidSection fluidSection = store.ensureAndGetComponent(sectionRef, FluidSection.getComponentType());
@@ -120,7 +114,7 @@ public final class CollisionManager {
                     boolean placed = fluidSection.setFluid(x, y, z, fluid, collisionInfo.result().getFluidLevel(fluidLevel));
 
                     if (placed) {
-                        chunk.setBlock(x, y, z, BlockType.EMPTY_ID, BlockType.EMPTY, 0, 0, 0);
+                        BlockOperations.setBlock(chunkStore, sectionRef, x, y, z, BlockType.EMPTY_ID, BlockType.EMPTY, 0, 0, 0);
                         return true;
                     } else {
                         return false;
@@ -137,14 +131,8 @@ public final class CollisionManager {
             int y = collisionInfo.y();
             int z = collisionInfo.z();
 
-            long chunkIndex = ChunkUtil.indexChunkFromBlock(x, z);
-            WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
-            if (chunk == null) {
-                return false;
-            }
-
-            if(this.collisionInfo.source().isBlock()) {
-                BlockType block = chunk.getBlockType(x, y, z);
+            if (this.collisionInfo.source().isBlock()) {
+                BlockType block = world.getBlockType(x, y, z);
                 return block != null && block.getId().equals(collisionInfo.source().getName());
             } else if (collisionInfo.source().isFluid()) {
                 int fluidId = world.getFluidId(x, y, z);
@@ -221,15 +209,18 @@ public final class CollisionManager {
     }
 
     private static void tickSurrounding(@Nonnull World world, int blockX, int blockY, int blockZ) {
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dz = -1; dz <= 1; dz++) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    int x = blockX + dx;
-                    int y = blockY + dy;
-                    int z = blockZ + dz;
-                    WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x, z));
-                    if (chunk != null) {
-                        chunk.setTicking(x, y, z, true);
+        ChunkStore chunkStore = world.getChunkStore();
+        Ref<ChunkStore> sectionRef = chunkStore.getChunkSectionReferenceAtBlock(blockX, blockY, blockZ);
+
+        if(sectionRef != null) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        int x = blockX + dx;
+                        int y = blockY + dy;
+                        int z = blockZ + dz;
+                        BlockSection blockSection = chunkStore.getStore().ensureAndGetComponent(sectionRef, BlockSection.getComponentType());
+                        blockSection.setTicking(x, y, z, true);
                     }
                 }
             }

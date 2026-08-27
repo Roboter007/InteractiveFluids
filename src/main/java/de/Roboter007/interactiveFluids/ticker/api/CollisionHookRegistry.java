@@ -1,5 +1,6 @@
 package de.Roboter007.interactiveFluids.ticker.api;
 
+import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.universe.world.World;
 import de.Roboter007.interactiveFluids.InteractiveFluidsPlugin;
 import de.Roboter007.interactiveFluids.ticker.collision.CollisionManager;
@@ -18,9 +19,9 @@ public final class CollisionHookRegistry {
     public static void register(@NotNull String blockTypeId, @NotNull HashMap<String, String> properties, @NotNull ICollisionHook processor) {
         CollisionProperties previous = REGISTRY.put(blockTypeId, new CollisionProperties(properties, processor));
         if (previous != null) {
-            InteractiveFluidsPlugin.get().getLogger().atWarning().log("[InteractiveFluids] CollisionHookRegistry for block '%s' got overridden.", blockTypeId);
+            HytaleLogger.forEnclosingClass().atWarning().log("[InteractiveFluids] CollisionHookRegistry for block '%s' got overridden.", blockTypeId);
         } else {
-            InteractiveFluidsPlugin.get().getLogger().atInfo().log("[InteractiveFluids] CollisionHookRegistry registered for block '%s'.", blockTypeId);
+            HytaleLogger.forEnclosingClass().atInfo().log("[InteractiveFluids] CollisionHookRegistry registered for block '%s'.", blockTypeId);
         }
     }
 
@@ -46,5 +47,9 @@ public final class CollisionHookRegistry {
         } catch (Exception e) {
             InteractiveFluidsPlugin.get().getLogger().atSevere().withCause(e).log("[InteractiveFluids] Error in CollisionHookRegistry for block '%s' at (%d, %d, %d).", name, collisionInfo.x(), collisionInfo.y(), collisionInfo.z());
         }
+    }
+
+    public static Map<String, CollisionProperties> entries() {
+        return Collections.unmodifiableMap(REGISTRY);
     }
 }

@@ -85,6 +85,7 @@ public class CollisionResultConfig {
                 ", assetID='" + assetID + '\'' +
                 ", id=" + id +
                 ", blockState='" + blockState + '\'' +
+                ", blockProperties=" + blockProperties +
                 ", fluidLevel=" + fluidLevel +
                 '}';
     }
@@ -106,6 +107,7 @@ public class CollisionResultConfig {
             Schema blockStateSchema = originalProps.get("BlockState");
             Schema fluidLevelSchema = originalProps.get("FluidLevel");
             Schema blockPropsSchema = originalProps.get("BlockProperties");
+            //ToDo: get from CollisionHookRegistry which depends on the assetId
 
             if (assetTypeSchema == null || assetIdSchema == null || blockStateSchema == null || fluidLevelSchema == null || blockPropsSchema == null) {
                 return;

@@ -8,8 +8,10 @@ import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import de.Roboter007.interactiveFluids.ticker.InteractiveFluidTicker;
+import de.Roboter007.interactiveFluids.ticker.api.CollisionHookRegistry;
 import de.Roboter007.interactiveFluids.ticker.collision.CollisionManager;
 
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 //ToDo: new Hytale Mod for an implementation for fields -> you should be able to water it with an watering can & water it with the water fluid
@@ -24,14 +26,13 @@ public class InteractiveFluidsPlugin extends JavaPlugin {
 
     @Override
     protected void setup() {
+        instance = this;
         LOGGER.atInfo().log("Loading Interactive Fluids...");
         FluidTicker.CODEC.register(
                 "Interactive Fluid Ticker",
                 InteractiveFluidTicker.class,
                 InteractiveFluidTicker.CODEC
         );
-
-        instance = this;
 
     }
 
@@ -50,5 +51,15 @@ public class InteractiveFluidsPlugin extends JavaPlugin {
 
     public static InteractiveFluidsPlugin get() {
         return instance;
+    }
+
+    static {
+        HashMap<String, String> tilledProperties = new HashMap<>();
+        tilledProperties.put("externalWater", "true");
+
+        CollisionHookRegistry.register("Soil_Dirt_Tilled", tilledProperties, (world, collisionInfo, properties) -> {
+            String value = properties.get("externalWater");
+            LOGGER.atInfo().log("Value of externalWater: " + value);
+        });
     }
 }
